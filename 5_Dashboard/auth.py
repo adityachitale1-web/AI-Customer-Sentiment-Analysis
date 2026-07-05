@@ -407,7 +407,11 @@ def login_dialog():
         email = st.text_input("Email", key="si_email", placeholder="you@company.com")
         password = st.text_input("Password", key="si_pw", type="password")
         if st.button("Sign In", type="primary", use_container_width=True, key="si_btn"):
-            if supabase_enabled():
+            if not EMAIL_RE.match(email.strip().lower()):
+                st.error("Please enter a valid email address (e.g. you@company.com).")
+            elif not password:
+                st.error("Please enter your password.")
+            elif supabase_enabled():
                 user, err = supabase_sign_in(email, password)
                 if err:
                     st.error(err)
