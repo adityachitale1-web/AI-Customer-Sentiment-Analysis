@@ -8,3 +8,5 @@ __pycache__/
 2_Model/distilbert-sentiment-v2/
 4_Database/feedback.db*
 .DS_Store
+api.log
+dashboard.log
