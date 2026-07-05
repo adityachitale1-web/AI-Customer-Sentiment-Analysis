@@ -38,6 +38,62 @@ PBKDF2_ITERATIONS = 200_000
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 CODE_TTL_MINUTES = 15
 
+# Email deliverability: typo detection + DNS mail-server check
+COMMON_DOMAINS = ("gmail.com", "yahoo.com", "outlook.com", "hotmail.com",
+                  "icloud.com", "aol.com", "protonmail.com", "proton.me",
+                  "live.com", "msn.com", "googlemail.com")
+REAL_LOOKALIKE_DOMAINS = {"mail.com", "ymail.com"}  # genuine providers, no typo warning
+
+
+def _edit_distance(a: str, b: str) -> int:
+    """Damerau-Levenshtein: adjacent-swap typos (hotmial) count as one edit."""
+    rows = [list(range(len(b) + 1))]
+    for i, ca in enumerate(a, 1):
+        cur = [i]
+        for j, cb in enumerate(b, 1):
+            cost = min(rows[-1][j] + 1, cur[j - 1] + 1, rows[-1][j - 1] + (ca != cb))
+            if i > 1 and j > 1 and ca == b[j - 2] and a[i - 2] == cb:
+                cost = min(cost, rows[-2][j - 2] + 1)
+            cur.append(cost)
+        rows.append(cur)
+        if len(rows) > 3:
+            rows.pop(0)
+    return rows[-1][-1]
+
+
+def check_email_deliverability(email: str):
+    """Returns None if the address looks deliverable, else an error message.
+
+    Catches domain typos (gnail.com -> gmail.com) and domains with no mail
+    server (via DNS MX lookup). Mailbox typos on a real domain can only be
+    caught by the verification email itself.
+    """
+    domain = email.strip().lower().rsplit("@", 1)[-1]
+
+    if domain not in COMMON_DOMAINS and domain not in REAL_LOOKALIKE_DOMAINS:
+        for known in COMMON_DOMAINS:
+            if _edit_distance(domain, known) == 1:
+                return (f"'{domain}' looks like a typo — did you mean "
+                        f"**@{known}**? Please check and try again.")
+
+    try:
+        import dns.resolver
+        resolver = dns.resolver.Resolver()
+        resolver.timeout = resolver.lifetime = 3.0
+        try:
+            resolver.resolve(domain, "MX")
+        except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer):
+            try:
+                resolver.resolve(domain, "A")  # rare: mail via A record
+            except Exception:
+                return (f"The domain '{domain}' does not exist or cannot "
+                        f"receive email. Please check the address.")
+    except ImportError:
+        pass
+    except Exception:
+        pass  # DNS unavailable/offline — never block sign-up on our own outage
+    return None
+
 DEFAULT_MASTER_EMAIL = "adityachitale1@gmail.com"
 DEFAULT_MASTER_PASSWORD = "CXS-Master#2026"
 
@@ -124,6 +180,9 @@ def create_user(name: str, email: str, password: str = "", provider: str = "loca
         return None, "Please enter your name."
     if not EMAIL_RE.match(email):
         return None, "Please enter a valid email address."
+    deliverability_error = check_email_deliverability(email)
+    if deliverability_error:
+        return None, deliverability_error
     if provider == "local" and len(password) < 8:
         return None, "Password must be at least 8 characters."
 
@@ -281,6 +340,9 @@ def supabase_sign_up(first: str, last: str, email: str, password: str):
         return False, "Please enter your first and last name."
     if not EMAIL_RE.match(email.strip().lower()):
         return False, "Please enter a valid email address."
+    deliverability_error = check_email_deliverability(email)
+    if deliverability_error:
+        return False, deliverability_error
     if len(password) < 8:
         return False, "Password must be at least 8 characters."
     try:
@@ -415,8 +477,12 @@ def login_dialog():
         email = st.text_input("Email", key="si_email", placeholder="you@company.com")
         password = st.text_input("Password", key="si_pw", type="password")
         if st.button("Sign In", type="primary", use_container_width=True, key="si_btn"):
+            deliverability_error = (check_email_deliverability(email)
+                                    if EMAIL_RE.match(email.strip().lower()) else None)
             if not EMAIL_RE.match(email.strip().lower()):
                 st.error("Please enter a valid email address (e.g. you@company.com).")
+            elif deliverability_error:
+                st.error(deliverability_error)
             elif not password:
                 st.error("Please enter your password.")
             elif supabase_enabled():

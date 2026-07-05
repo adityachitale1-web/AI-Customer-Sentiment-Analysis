@@ -28,3 +28,4 @@ wordcloud
 fpdf2
 supabase
 pypdf
+dnspython
