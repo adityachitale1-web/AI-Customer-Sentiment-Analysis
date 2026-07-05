@@ -36,6 +36,7 @@ API_URL = os.getenv("SENTIMENT_API_URL", "http://127.0.0.1:8000")
 SENTIMENT_COLORS = {"Positive": "#2eb086", "Negative": "#e05656", "Neutral": "#e8b93e"}
 SENTIMENT_EMOJI = {"Positive": "😊", "Negative": "😠", "Neutral": "😐"}
 BULK_LIMIT = 1000
+MAX_UPLOAD_MB = 10  # keep in sync with [server] maxUploadSize in .streamlit/config.toml
 
 STOPWORDS = set("""a about after all also am an and any are as at be because been but by can
 could did do does for from get got had has have he her him his how i if in into is it its
@@ -501,14 +502,14 @@ def render_single_result(result: dict, text: str) -> None:
                     language=None)
 
 
-def generate_insights(results: pd.DataFrame):
+def generate_insights(results: pd.DataFrame, review_threshold: float = 0.60):
     """Rule-based business insights + recommendations for a batch of results."""
     total = len(results)
     pct = {s: 100 * (results["sentiment"] == s).mean()
            for s in ("Positive", "Neutral", "Negative")}
     net = pct["Positive"] - pct["Negative"]
     avg_conf = results["confidence"].mean()
-    low_share = 100 * (results["confidence"] < 0.60).mean()
+    low_share = 100 * (results["confidence"] < review_threshold).mean()
 
     def words_for(sentiment, n=4):
         subset = results[results["sentiment"] == sentiment]["text"]
@@ -550,7 +551,8 @@ def generate_insights(results: pd.DataFrame):
                         f"hide questions and pre-purchase signals — mining them is a low-cost "
                         f"revenue opportunity.")
     insights.append(f"**Model Certainty:** average confidence is {avg_conf:.0%}; "
-                    f"{low_share:.0f}% of items are low-confidence (<60%) and should get "
+                    f"{low_share:.0f}% of items fall below your "
+                    f"{review_threshold:.0%} AI-confidence weighting and should get "
                     f"human review rather than automated handling.")
 
     if "risk" in results.columns:
@@ -710,8 +712,8 @@ def build_report_markdown(results: pd.DataFrame, summary: str,
     return "\n".join(lines)
 
 
-def render_batch_report(results: pd.DataFrame) -> None:
-    insights, recs, net, avg_conf, low_share = generate_insights(results)
+def render_batch_report(results: pd.DataFrame, review_threshold: float = 0.60) -> None:
+    insights, recs, net, avg_conf, low_share = generate_insights(results, review_threshold)
     pct = {s: 100 * (results["sentiment"] == s).mean()
            for s in ("Positive", "Neutral", "Negative")}
     summary = executive_summary(results, net, avg_conf)
@@ -765,9 +767,10 @@ def render_batch_report(results: pd.DataFrame) -> None:
         st.success("🚨 Urgent Alert Box: No High-Risk Items In This Batch.")
 
     st.markdown("&nbsp;")
-    sec_overview, sec_aspects, sec_emotion, sec_voice, sec_insights = st.tabs(
+    sec_overview, sec_aspects, sec_emotion, sec_voice, sec_insights, sec_report = st.tabs(
         ["📊 Overview & Trends", "🏷️ Aspects & Segments", "🎭 Emotions & Risk",
-         "🗣️ Voice Of The Customer", "💡 Insights & Recommendations"])
+         "🗣️ Voice Of The Customer", "💡 Insights & Recommendations",
+         "📄 Download Report"])
 
     # ---------------- Overview & Trends ----------------
     with sec_overview:
@@ -828,7 +831,8 @@ def render_batch_report(results: pd.DataFrame) -> None:
         t1.metric("Avg Length", f"{wl.mean():.0f} Words")
         t2.metric("Longest Item", f"{wl.max()} Words")
         t3.metric("High Confidence (≥85%)", f"{100 * (results['confidence'] >= 0.85).mean():.0f}%")
-        t4.metric("Needs Human Review (<60%)", f"{int((results['confidence'] < 0.60).sum())}")
+        t4.metric(f"Needs Human Review (<{review_threshold:.0%})",
+                  f"{int((results['confidence'] < review_threshold).sum())}")
 
     # ---------------- Aspects & Segments ----------------
     with sec_aspects:
@@ -985,6 +989,33 @@ def render_batch_report(results: pd.DataFrame) -> None:
             for i, line in enumerate(recs, 1):
                 st.markdown(f"{i}. {line}")
 
+    # ---------------- Downloadable PDF report ----------------
+    with sec_report:
+        st.markdown("### 📄 Professional Analysis Report (PDF)")
+        st.markdown(
+            "A formatted, shareable document containing the **entire analysis**: "
+            "executive summary, key-metrics table, numbered figures (sentiment "
+            "distribution, confidence, trends, aspects, emotions), channel / "
+            "segment tables, the urgent response queue, **business insights**, "
+            "**recommendations**, and a methodology note.")
+        if st.button("Generate PDF Report", type="primary", key="gen_pdf"):
+            with st.spinner("Building The Report — Rendering Figures And Tables…"):
+                from report_pdf import build_pdf
+                try:
+                    st.session_state["pdf_report"] = build_pdf(
+                        results, summary, insights, recs,
+                        aspect_breakdown(results), review_threshold,
+                        batch_name=st.session_state.get("batch_name", "Uploaded Dataset"))
+                except Exception as exc:
+                    st.error(f"Report Generation Failed: {exc}")
+        if st.session_state.get("pdf_report"):
+            st.download_button("⬇️ Download PDF Report",
+                               st.session_state["pdf_report"],
+                               "CXSentinel_Analysis_Report.pdf", "application/pdf",
+                               use_container_width=True)
+            st.caption("The Raw Data (CSV) And A Markdown Version Are Available "
+                       "At The Bottom Of The Page.")
+
     # ---- Interactive data table + exports ----
     st.markdown("### 🔎 Interactive Data Table")
     f1, f2, f3 = st.columns([2, 2, 3])
@@ -1076,9 +1107,11 @@ def render_analyze() -> None:
     else:
         with st.container(border=True):
             st.subheader("Bulk Upload — CSV Or TXT")
-            st.caption("CSV: the text column is detected automatically (e.g. Text / Feedback / "
-                       "Review). TXT: one feedback item per line. "
-                       f"Up to {BULK_LIMIT:,} items per upload.")
+            st.caption(f"**Maximum Upload Size: {MAX_UPLOAD_MB} MB Per File** · CSV: the "
+                       "text column is detected automatically (e.g. Text / Feedback / "
+                       "Review), with timestamps, channels and locations picked up when "
+                       "present. TXT: one feedback item per line. "
+                       f"Up to {BULK_LIMIT:,} items analyzed per upload.")
             uploaded = st.file_uploader("Upload Feedback File", type=["csv", "txt"],
                                         label_visibility="collapsed")
             if uploaded is not None:
@@ -1118,15 +1151,23 @@ def render_analyze() -> None:
         # The report lives in session state so downloads, expanders and tab
         # switches don't wipe it (every widget interaction reruns the script).
         if "batch_results" in st.session_state:
+            review_threshold = st.slider(
+                "🎚️ AI Confidence Weighting", min_value=0.50, max_value=0.95,
+                value=0.60, step=0.05,
+                help="How Much Weight To Give The AI's Own Certainty: Items Below "
+                     "This Confidence Are Flagged For Human Review Instead Of "
+                     "Automated Handling. Raising It Makes The Analysis More "
+                     "Conservative — Fewer Automated Decisions, More Human Checks. "
+                     "It Recalculates The Review Counts, Insights And Report Live.")
             head_l, head_r = st.columns([5, 1.2])
             head_l.success(f"Report For **{st.session_state.get('batch_name', 'Upload')}** — "
                            f"{len(st.session_state['batch_results']):,} Items Classified And Stored.")
             if head_r.button("Clear Report", use_container_width=True):
-                for key in ("batch_results", "batch_name"):
+                for key in ("batch_results", "batch_name", "pdf_report"):
                     st.session_state.pop(key, None)
                 st.rerun()
             else:
-                render_batch_report(st.session_state["batch_results"])
+                render_batch_report(st.session_state["batch_results"], review_threshold)
 
 
 def render_history() -> None:
@@ -1301,9 +1342,19 @@ with bar_l:
     st.markdown(wordmark(36), unsafe_allow_html=True)
 with bar_r:
     if user:
-        if st.button(f"Sign Out ({user['name'].split()[0]})", use_container_width=True):
-            auth.sign_out()
-            st.rerun()
+        # Profile button (top right)
+        with st.popover(f"👤 {user['name'].split()[0]}", use_container_width=True):
+            st.markdown(f"**{user['name']}**")
+            st.caption(user["email"])
+            role = "Owner (Admin)" if user.get("role") == "admin" else "Member"
+            provider = {"google": "Google", "supabase": "Supabase Auth",
+                        "local": "Email"}.get(user.get("provider", "local"), "Email")
+            st.caption(f"Role: {role} · Signed In Via: {provider}")
+            st.divider()
+            if st.button("Sign Out", type="primary", use_container_width=True,
+                         key="signout_btn"):
+                auth.sign_out()
+                st.rerun()
     else:
         if st.button("Sign In", type="primary", use_container_width=True):
             auth.login_dialog()

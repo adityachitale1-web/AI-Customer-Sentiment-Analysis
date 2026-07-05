@@ -120,6 +120,28 @@ OIDC (`st.login`) when `[auth]` secrets are configured; otherwise demo SSO.
 `5_Dashboard/auth.py` — **change them before any public deployment.** The owner
 account has `role='admin'` and unlocks the Admin Settings tab.
 
+**Supabase authentication (optional)** — add a `[supabase]` section to
+`.streamlit/secrets.toml` (or set `SUPABASE_URL` / `SUPABASE_ANON_KEY`):
+
+```toml
+[supabase]
+url = "https://<project-ref>.supabase.co"
+anon_key = "<anon public key>"
+```
+
+With these set, email sign-up/sign-in is verified through **Supabase Auth**
+(Supabase sends the confirmation email); without them the app uses its local
+PBKDF2 accounts with the built-in code verification. Sign-up collects first and
+last name either way.
+
+**Analysis extras** — bulk uploads are capped at 10 MB / 1,000 items (shown in
+the UI); an **AI Confidence Weighting** slider sets the minimum model
+confidence for automated handling (items below it are flagged for human
+review, recalculating the KPIs, insights and urgent queue live); and the
+report's **Download Report** tab generates a professional multi-page PDF
+(figures, tables, insights, recommendations, methodology) via fpdf2 +
+matplotlib.
+
 ## Tests
 
 ```bash

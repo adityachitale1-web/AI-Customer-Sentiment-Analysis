@@ -253,6 +253,70 @@ def verify_email_code(email: str, code: str):
     return _row_to_user(row), None
 
 
+# ------------------------------------------------------------ supabase
+
+@st.cache_resource(show_spinner=False)
+def _supabase():
+    """Supabase client when [supabase] url/anon_key secrets (or SUPABASE_URL /
+    SUPABASE_ANON_KEY env vars) are configured; None otherwise."""
+    url = _secret("supabase", "url", "SUPABASE_URL")
+    key = _secret("supabase", "anon_key", "SUPABASE_ANON_KEY")
+    if not (url and key):
+        return None
+    try:
+        from supabase import create_client
+        return create_client(url, key)
+    except Exception:
+        return None
+
+
+def supabase_enabled() -> bool:
+    return _supabase() is not None
+
+
+def supabase_sign_up(first: str, last: str, email: str, password: str):
+    """Register through Supabase Auth (it emails the confirmation link).
+    Returns (True, None) or (False, error_message)."""
+    if not first.strip() or not last.strip():
+        return False, "Please enter your first and last name."
+    if not EMAIL_RE.match(email.strip().lower()):
+        return False, "Please enter a valid email address."
+    if len(password) < 8:
+        return False, "Password must be at least 8 characters."
+    try:
+        _supabase().auth.sign_up({
+            "email": email.strip().lower(),
+            "password": password,
+            "options": {"data": {"first_name": first.strip(),
+                                 "last_name": last.strip()}},
+        })
+    except Exception as exc:
+        return False, f"Sign up failed: {exc}"
+    # Mirror the account locally so the admin panel and roles work
+    create_user(f"{first.strip()} {last.strip()}", email, provider="supabase")
+    return True, None
+
+
+def supabase_sign_in(email: str, password: str):
+    """Authenticate against Supabase Auth. Returns (user_dict, None) or (None, error)."""
+    try:
+        res = _supabase().auth.sign_in_with_password(
+            {"email": email.strip().lower(), "password": password})
+    except Exception as exc:
+        msg = str(exc)
+        if "confirm" in msg.lower():
+            return None, ("Please verify your email first — Supabase sent you a "
+                          "confirmation link when you signed up.")
+        return None, "Incorrect email or password."
+    row = _get_user_row(email)
+    if row:
+        return _row_to_user(row), None
+    meta = (res.user.user_metadata or {}) if res and res.user else {}
+    name = (f"{meta.get('first_name', '')} {meta.get('last_name', '')}".strip()
+            or email.split("@")[0].replace(".", " ").title())
+    return create_user(name, email, provider="supabase")
+
+
 # ------------------------------------------------------------------ UI
 
 def _native_oidc_available() -> bool:
@@ -312,22 +376,24 @@ def login_dialog():
 
     st.caption("Sign in to open your sentiment dashboard.")
 
-    # ---- Google ----
+    # ---- Google (the "G" logo is injected via CSS on the google_btn key) ----
     if _native_oidc_available():
-        if st.button("🔵  Continue With Google", use_container_width=True):
+        if st.button("Continue With Google", use_container_width=True, key="google_btn"):
             st.login("google")
     else:
         if st.session_state.get("google_flow"):
             g_email = st.text_input("Google Account Email", key="g_email",
                                     placeholder="you@gmail.com")
-            if st.button("Continue", type="primary", use_container_width=True):
+            if st.button("Continue", type="primary", use_container_width=True,
+                         key="g_continue"):
                 user, err = get_or_create_google_user(g_email)
                 if err:
                     st.error(err)
                 else:
                     _sign_in(user)
         else:
-            if st.button("🔵  Continue With Google", use_container_width=True):
+            if st.button("Continue With Google", use_container_width=True,
+                         key="google_btn"):
                 st.session_state["google_flow"] = True
                 st.rerun(scope="fragment")
             st.caption("Demo SSO — connects a Google account by email. Full OAuth "
@@ -341,24 +407,45 @@ def login_dialog():
         email = st.text_input("Email", key="si_email", placeholder="you@company.com")
         password = st.text_input("Password", key="si_pw", type="password")
         if st.button("Sign In", type="primary", use_container_width=True, key="si_btn"):
-            user, err = verify_user(email, password)
-            if err == "UNVERIFIED":
-                _start_verification(email)
-            elif err:
-                st.error(err)
+            if supabase_enabled():
+                user, err = supabase_sign_in(email, password)
+                if err:
+                    st.error(err)
+                else:
+                    _sign_in(user)
             else:
-                _sign_in(user)
+                user, err = verify_user(email, password)
+                if err == "UNVERIFIED":
+                    _start_verification(email)
+                elif err:
+                    st.error(err)
+                else:
+                    _sign_in(user)
 
     with tab_up:
-        name = st.text_input("Full Name", key="su_name", placeholder="Aditya Chitale")
+        n1, n2 = st.columns(2)
+        first = n1.text_input("First Name", key="su_first", placeholder="Aditya")
+        last = n2.text_input("Last Name", key="su_last", placeholder="Chitale")
         email_u = st.text_input("Email", key="su_email", placeholder="you@company.com")
         pw1 = st.text_input("Password (Min 8 Characters)", key="su_pw1", type="password")
         pw2 = st.text_input("Confirm Password", key="su_pw2", type="password")
+        if supabase_enabled():
+            st.caption("🔐 Verification Powered By Supabase Auth — a confirmation "
+                       "link is emailed to you.")
         if st.button("Create Account", type="primary", use_container_width=True, key="su_btn"):
             if pw1 != pw2:
                 st.error("Passwords do not match.")
+            elif not first.strip() or not last.strip():
+                st.error("Please enter your first and last name.")
+            elif supabase_enabled():
+                ok, err = supabase_sign_up(first, last, email_u, pw1)
+                if err:
+                    st.error(err)
+                else:
+                    st.success(f"Account created! Supabase has emailed a confirmation "
+                               f"link to **{email_u}** — click it, then sign in here.")
             else:
-                user, err = create_user(name, email_u, pw1)
+                user, err = create_user(f"{first.strip()} {last.strip()}", email_u, pw1)
                 if err:
                     st.error(err)
                 else:

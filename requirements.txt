@@ -4,3 +4,7 @@ streamlit
 plotly
 pandas
 requests
+wordcloud
+matplotlib
+fpdf2
+supabase

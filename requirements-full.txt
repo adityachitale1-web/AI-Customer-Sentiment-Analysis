@@ -25,3 +25,6 @@ requests
 pytest
 httpx
 wordcloud
+fpdf2
+supabase
+pypdf
