@@ -1,4 +1,8 @@
-# AI Customer Sentiment Analysis Dashboard
+# SentiLens — AI Customer Sentiment Analysis
+
+<img src="5_Dashboard/assets/logo.svg" width="72" alt="SentiLens logo">
+
+**SentiLens** · *See what your customers feel.*
 
 AI Major Capstone Project — **Option 1**. Classifies customer feedback as
 Positive / Negative / Neutral with a fine-tuned DistilBERT transformer trained on
@@ -78,8 +82,17 @@ Interactive API docs: http://127.0.0.1:8000/docs — endpoints: `POST /predict`,
 cd 5_Dashboard && ../.venv/bin/python -m streamlit run app.py
 ```
 
-Opens at http://localhost:8501. Type feedback into the "Analyse new feedback"
-box — it calls the API live, stores the prediction, and the charts update.
+Opens at http://localhost:8501 as a full product website:
+
+- **Landing page** — hero, live statistics, feature grid, how-it-works and footer,
+  rendered over an animated "Liquid Ether" WebGL background.
+- **Login** — a pop-up dialog offering *Continue with Google* or email
+  sign-in / account creation. Accounts are stored in the project database with
+  PBKDF2-hashed passwords (200k iterations, per-user salt). The Google button
+  uses Streamlit's native OIDC (`st.login`) when `[auth]` secrets are configured
+  (Google Cloud OAuth client); otherwise it runs as a clearly-labelled demo SSO.
+- **Dashboard** (after sign-in) — type feedback into the "Analyse new feedback"
+  box; it calls the API live, stores the prediction, and the charts update.
 
 ## Tests
 
