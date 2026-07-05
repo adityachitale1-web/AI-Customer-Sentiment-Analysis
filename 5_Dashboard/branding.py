@@ -21,20 +21,19 @@ LOGO_SVG = """
 
 
 def logo_html(size: int = 40) -> str:
-    return LOGO_SVG.format(size=size)
+    # Single-line HTML: st.markdown treats indented multi-line HTML as a
+    # Markdown code block, so all whitespace is collapsed.
+    return " ".join(LOGO_SVG.format(size=size).split())
 
 
 def wordmark(size: int = 34) -> str:
-    return f"""
-    <div style="display:flex;align-items:center;gap:.6rem;">
-      {logo_html(size)}
-      <span style="font-size:{size * 0.72}px;font-weight:800;letter-spacing:-.02em;
-                   background:linear-gradient(90deg,#F2EFFD 30%,#B19EEF 70%,#FF9FFC 100%);
-                   -webkit-background-clip:text;background-clip:text;color:transparent;">
-        {APP_NAME}
-      </span>
-    </div>
-    """
+    span_style = (
+        f"font-size:{size * 0.72:.0f}px;font-weight:800;letter-spacing:-.02em;"
+        "background:linear-gradient(90deg,#F2EFFD 30%,#B19EEF 70%,#FF9FFC 100%);"
+        "-webkit-background-clip:text;background-clip:text;color:transparent;"
+    )
+    return ('<div style="display:flex;align-items:center;gap:.6rem;">'
+            f'{logo_html(size)}<span style="{span_style}">{APP_NAME}</span></div>')
 
 
 LIQUID_ETHER_HTML = """
