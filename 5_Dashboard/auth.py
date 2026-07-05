@@ -384,13 +384,21 @@ def login_dialog():
         if st.session_state.get("google_flow"):
             g_email = st.text_input("Google Account Email", key="g_email",
                                     placeholder="you@gmail.com")
+            st.caption("You'll Be Asked For A Verification Code To Prove The "
+                       "Email Is Yours.")
             if st.button("Continue", type="primary", use_container_width=True,
                          key="g_continue"):
-                user, err = get_or_create_google_user(g_email)
-                if err:
-                    st.error(err)
+                if not EMAIL_RE.match(g_email.strip().lower()):
+                    st.error("Please enter a valid email address.")
                 else:
-                    _sign_in(user)
+                    user, err = get_or_create_google_user(g_email)
+                    if err:
+                        st.error(err)
+                    else:
+                        # Never sign in on an unproven email: demo SSO has no
+                        # real OAuth handshake, so ownership is confirmed with
+                        # a verification code every time.
+                        _start_verification(user["email"])
         else:
             if st.button("Continue With Google", use_container_width=True,
                          key="google_btn"):
