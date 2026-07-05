@@ -41,6 +41,8 @@ def test_predict_positive(client):
     assert body["sentiment"] == "Positive"
     assert 0 <= body["confidence"] <= 1
     assert body["id"] > 0
+    assert set(body["scores"]) == {"Negative", "Neutral", "Positive"}
+    assert body["scores"]["Positive"] == body["confidence"]
 
 
 def test_predict_negative(client):

@@ -65,6 +65,24 @@ Per-class results (DistilBERT, test set):
 - For context, state-of-the-art results on this benchmark (RoBERTa trained on 58M tweets) reach ~0.72 macro F1; our 0.680 with a distilled model, 2 epochs and a 12k training subset is a strong result with a fraction of the compute, and the gap is a documented improvement path.
 - Inference latency through the API is tens of milliseconds per request on the M1 (reported per-request in the API's `latency_ms` field) — comfortably real-time.
 
+### 5.1 Model v2 — Extension To E-Commerce Review Text
+
+To handle marketplace-style feedback (Amazon/noon/talabat-like reviews), a second
+model was trained on a combined corpus of **28,096 real texts**: 12,000 tweets
+(`cardiffnlp/tweet_eval`), 12,000 Yelp reviews (`yelp_review_full`, star ratings
+mapped to 3 classes), 4,000 Amazon reviews (`amazon_polarity`) and a 96-item
+labelled customer-feedback file. Training code: `1_Notebook/train_v2_reviews.py`;
+metrics: `metrics_v2.json`.
+
+| Test set | Accuracy | Macro F1 | n |
+|---|---|---|---|
+| Tweets (tweet_eval test) | 0.676 | 0.675 | 12,284 |
+| **Customer reviews (held-out Yelp)** | **0.733** | **0.728** | 1,500 |
+
+The v2 model gains strong review-domain performance (73.3% on a three-class task
+that includes the difficult Neutral middle) while remaining statistically
+unchanged on tweets (−0.6 points) — the API serves v2 by default.
+
 ## 6. Key Insights
 
 1. **Context beats keywords for detecting unhappy customers.** The doubling of Negative-class recall is the single most valuable improvement: a keyword-based system would silently miss two-thirds of complaints; the transformer catches two-thirds *of them*.

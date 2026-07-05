@@ -1,0 +1,85 @@
+{
+  "tweet_eval_test": {
+    "accuracy": 0.6763,
+    "macro_f1": 0.6752,
+    "per_class": {
+      "Negative": {
+        "precision": 0.6753951403632932,
+        "recall": 0.7207955689828801,
+        "f1-score": 0.6973572037510657,
+        "support": 3972.0
+      },
+      "Neutral": {
+        "precision": 0.7113010446343779,
+        "recall": 0.6307899612598956,
+        "f1-score": 0.6686306016782717,
+        "support": 5937.0
+      },
+      "Positive": {
+        "precision": 0.6115107913669064,
+        "recall": 0.7157894736842105,
+        "f1-score": 0.6595538312318138,
+        "support": 2375.0
+      },
+      "accuracy": 0.6763269293389775,
+      "macro avg": {
+        "precision": 0.6660689921215258,
+        "recall": 0.6891250013089953,
+        "f1-score": 0.6751805455537171,
+        "support": 12284.0
+      },
+      "weighted avg": {
+        "precision": 0.6803974217692694,
+        "recall": 0.6763269293389775,
+        "f1-score": 0.6761643637771646,
+        "support": 12284.0
+      }
+    },
+    "n": 12284
+  },
+  "yelp_test": {
+    "accuracy": 0.7333,
+    "macro_f1": 0.728,
+    "per_class": {
+      "Negative": {
+        "precision": 0.7517605633802817,
+        "recall": 0.854,
+        "f1-score": 0.799625468164794,
+        "support": 500.0
+      },
+      "Neutral": {
+        "precision": 0.6469194312796208,
+        "recall": 0.546,
+        "f1-score": 0.5921908893709328,
+        "support": 500.0
+      },
+      "Positive": {
+        "precision": 0.7843137254901961,
+        "recall": 0.8,
+        "f1-score": 0.7920792079207921,
+        "support": 500.0
+      },
+      "accuracy": 0.7333333333333333,
+      "macro avg": {
+        "precision": 0.7276645733833661,
+        "recall": 0.7333333333333334,
+        "f1-score": 0.7279651884855062,
+        "support": 1500.0
+      },
+      "weighted avg": {
+        "precision": 0.7276645733833663,
+        "recall": 0.7333333333333333,
+        "f1-score": 0.7279651884855063,
+        "support": 1500.0
+      }
+    },
+    "n": 1500
+  },
+  "train_size": 28096,
+  "sources": {
+    "tweets": 12000,
+    "yelp": 12000,
+    "amazon": 4000,
+    "uploaded_csv": 96
+  }
+}

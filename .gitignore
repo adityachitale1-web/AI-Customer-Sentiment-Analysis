@@ -3,6 +3,8 @@ __pycache__/
 *.pyc
 .ipynb_checkpoints/
 1_Notebook/checkpoints/
+1_Notebook/checkpoints_v2/
 2_Model/distilbert-sentiment/
+2_Model/distilbert-sentiment-v2/
 4_Database/feedback.db*
 .DS_Store

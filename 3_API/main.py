@@ -43,8 +43,13 @@ logging.basicConfig(
 )
 logger = logging.getLogger("sentiment-api")
 
-FINE_TUNED_DIR = Path(os.getenv("SENTIMENT_MODEL_DIR",
-                                PROJECT_ROOT / "2_Model" / "distilbert-sentiment"))
+# Preference order: explicit override, then v2 (tweets + Amazon/Yelp reviews),
+# then the original v1 model.
+_env_dir = os.getenv("SENTIMENT_MODEL_DIR")
+MODEL_CANDIDATES = ([(Path(_env_dir), "custom (env override)")] if _env_dir else []) + [
+    (PROJECT_ROOT / "2_Model" / "distilbert-sentiment-v2", "distilbert-finetuned-v2 (reviews+tweets)"),
+    (PROJECT_ROOT / "2_Model" / "distilbert-sentiment", "distilbert-finetuned"),
+]
 FALLBACK_MODEL = "cardiffnlp/twitter-roberta-base-sentiment-latest"
 
 # Normalise whatever label scheme the loaded model uses to our three classes
@@ -59,19 +64,19 @@ state: dict = {}
 class _DummyClassifier:
     """Deterministic stand-in used by the test suite (SENTIMENT_TEST_MODE=1)."""
 
-    def __call__(self, texts, **kwargs):
-        single = isinstance(texts, str)
-        items = [texts] if single else texts
-        results = []
-        for text in items:
-            lowered = text.lower()
-            if any(w in lowered for w in ("love", "great", "excellent", "amazing")):
-                results.append({"label": "positive", "score": 0.98})
-            elif any(w in lowered for w in ("hate", "terrible", "awful", "broken")):
-                results.append({"label": "negative", "score": 0.97})
-            else:
-                results.append({"label": "neutral", "score": 0.90})
-        return results
+    def __call__(self, text, **kwargs):
+        lowered = text.lower()
+        if any(w in lowered for w in ("love", "great", "excellent", "amazing")):
+            top = ("positive", 0.98)
+        elif any(w in lowered for w in ("hate", "terrible", "awful", "broken")):
+            top = ("negative", 0.97)
+        else:
+            top = ("neutral", 0.90)
+        rest = (1.0 - top[1]) / 2
+        return [{"label": top[0], "score": top[1]}] + [
+            {"label": lab, "score": rest}
+            for lab in ("negative", "neutral", "positive") if lab != top[0]
+        ]
 
 
 def load_classifier():
@@ -79,12 +84,11 @@ def load_classifier():
         logger.info("Test mode: using dummy classifier")
         return _DummyClassifier(), "dummy (test mode)"
     from transformers import pipeline  # deferred: heavy import
-    if FINE_TUNED_DIR.exists():
-        logger.info("Loading fine-tuned model from %s", FINE_TUNED_DIR)
-        return (pipeline("text-classification", model=str(FINE_TUNED_DIR)),
-                "distilbert-finetuned")
-    logger.warning("Fine-tuned model not found at %s — using fallback %s",
-                   FINE_TUNED_DIR, FALLBACK_MODEL)
+    for model_dir, name in MODEL_CANDIDATES:
+        if model_dir.exists():
+            logger.info("Loading fine-tuned model from %s", model_dir)
+            return pipeline("text-classification", model=str(model_dir)), name
+    logger.warning("No fine-tuned model found — using fallback %s", FALLBACK_MODEL)
     return (pipeline("text-classification", model=FALLBACK_MODEL),
             "cardiffnlp-roberta (fallback)")
 
@@ -131,6 +135,9 @@ class FeedbackIn(BaseModel):
     text: str = Field(..., min_length=1, max_length=2000,
                       examples=["The delivery was fast but the box arrived damaged."])
     source: str = Field(default="api", max_length=50, examples=["web_form"])
+    persist: bool = Field(default=True,
+                          description="Store the prediction in the database. Set false "
+                                      "for ephemeral analyses (e.g. sentence-level breakdowns).")
 
 
 class BatchIn(BaseModel):
@@ -142,6 +149,7 @@ class PredictionOut(BaseModel):
     text: str
     sentiment: str
     confidence: float
+    scores: dict  # probability per class: {"Negative": .., "Neutral": .., "Positive": ..}
     model: str
     latency_ms: float
 
@@ -160,18 +168,30 @@ def classify_and_store(feedback: FeedbackIn) -> PredictionOut:
     if classifier is None:
         raise HTTPException(status_code=503, detail="Model not loaded yet")
     started = time.perf_counter()
-    result = classifier(clean_text(feedback.text), truncation=True, max_length=128)[0]
+    raw = classifier(clean_text(feedback.text), truncation=True, max_length=128,
+                     top_k=None)
+    if raw and isinstance(raw[0], list):  # some pipeline versions nest per-input
+        raw = raw[0]
     latency_ms = (time.perf_counter() - started) * 1000
-    sentiment = LABEL_MAP.get(result["label"].lower())
-    if sentiment is None:
-        logger.error("Unexpected model label: %s", result["label"])
+    scores = {}
+    for item in raw:
+        mapped = LABEL_MAP.get(item["label"].lower())
+        if mapped:
+            scores[mapped] = round(float(item["score"]), 4)
+    if not scores:
+        logger.error("Unexpected model labels: %s", [i["label"] for i in raw])
         raise HTTPException(status_code=500, detail="Unexpected model output")
-    row_id = db.insert_feedback(feedback.text, sentiment, result["score"],
-                                source=feedback.source)
-    logger.info("predict id=%s sentiment=%s conf=%.3f latency=%.0fms source=%s",
-                row_id, sentiment, result["score"], latency_ms, feedback.source)
+    sentiment = max(scores, key=scores.get)
+    confidence = scores[sentiment]
+    row_id = 0
+    if feedback.persist:
+        row_id = db.insert_feedback(feedback.text, sentiment, confidence,
+                                    source=feedback.source)
+    logger.info("predict id=%s sentiment=%s conf=%.3f latency=%.0fms source=%s persist=%s",
+                row_id, sentiment, confidence, latency_ms, feedback.source,
+                feedback.persist)
     return PredictionOut(id=row_id, text=feedback.text, sentiment=sentiment,
-                         confidence=round(result["score"], 4),
+                         confidence=confidence, scores=scores,
                          model=state["model_name"], latency_ms=round(latency_ms, 1))
 
 

@@ -1,15 +1,16 @@
-# SentiLens — AI Customer Sentiment Analysis
+# CXSentinel — AI Customer Sentiment Analysis
 
-<img src="5_Dashboard/assets/logo.svg" width="72" alt="SentiLens logo">
+<img src="5_Dashboard/assets/logo.svg" width="72" alt="CXSentinel logo">
 
-**SentiLens** · *See what your customers feel.*
+**CXSentinel** · *Never Miss a Customer Signal.*
 
 AI Major Capstone Project — **Option 1**. Classifies customer feedback as
 Positive / Negative / Neutral with a fine-tuned DistilBERT transformer trained on
-**real data** (the `cardiffnlp/tweet_eval` sentiment benchmark — 45,615 real
-tweets for training, 12,284 held-out for testing), serves predictions through a
-production-grade real-time API, stores everything in a database, and visualises
-trends in an interactive dashboard.
+**real data** — the `cardiffnlp/tweet_eval` benchmark (45,615 human-labelled
+tweets) plus, in the v2 model, real **Amazon and Yelp customer reviews**
+(streamed from public datasets) and a labelled sample feedback file. Predictions
+are served through a production-grade real-time API, stored in a database, and
+visualised in a full product website with login, bulk upload and admin controls.
 
 ## Folder structure — one folder per deliverable
 
@@ -59,6 +60,18 @@ cd 1_Notebook
 This saves the model to `2_Model/distilbert-sentiment/` and writes
 `6_Report/metrics.json` + confusion-matrix figures for the report.
 
+**1b. Train the v2 review model** (optional but recommended; ~40 min). Combines
+real tweets with real Amazon (`amazon_polarity`) and Yelp (`yelp_review_full`)
+customer reviews so the model handles e-commerce/marketplace feedback
+(Amazon/noon/talabat-style text):
+
+```bash
+cd 1_Notebook && ../.venv/bin/python train_v2_reviews.py
+```
+
+Saves `2_Model/distilbert-sentiment-v2/` (the API automatically prefers v2)
+and writes `6_Report/metrics_v2.json`.
+
 **2. Seed the database with real classified feedback** (400 real tweets from the
 held-out test split, classified by the trained model):
 
@@ -82,17 +95,30 @@ Interactive API docs: http://127.0.0.1:8000/docs — endpoints: `POST /predict`,
 cd 5_Dashboard && ../.venv/bin/python -m streamlit run app.py
 ```
 
-Opens at http://localhost:8501 as a full product website:
+Opens at http://localhost:8501 as a full product website with three tabs:
 
-- **Landing page** — hero, live statistics, feature grid, how-it-works and footer,
+- **Home Page** — hero, live statistics, feature grid, how-it-works and footer,
   rendered over an animated "Liquid Ether" WebGL background.
-- **Login** — a pop-up dialog offering *Continue with Google* or email
-  sign-in / account creation. Accounts are stored in the project database with
-  PBKDF2-hashed passwords (200k iterations, per-user salt). The Google button
-  uses Streamlit's native OIDC (`st.login`) when `[auth]` secrets are configured
-  (Google Cloud OAuth client); otherwise it runs as a clearly-labelled demo SSO.
-- **Dashboard** (after sign-in) — type feedback into the "Analyse new feedback"
-  box; it calls the API live, stores the prediction, and the charts update.
+- **Analyze Page** (sign-in required) — flexible input: a single line or whole
+  paragraph, **or a bulk CSV/TXT upload** (text column auto-detected, up to
+  1,000 items per file) with progress, result charts and CSV export.
+- **History Page** (sign-in required) — filters, KPIs, sentiment distribution,
+  trend-over-time, issue analysis and exportable feedback table.
+- **Admin Settings** (owner only) — user management, API/model status, SMTP
+  status, master password change, and data reset/restore controls.
+
+**Login & accounts** — a pop-up dialog offers *Continue with Google* or email
+sign-up. New email accounts must verify a **6-digit email code**; with SMTP
+credentials configured (an `[smtp]` section in `.streamlit/secrets.toml` or
+`SMTP_HOST/PORT/USER/PASSWORD` env vars) the code is emailed, otherwise it is
+shown on screen in clearly-labelled demo mode. Passwords are PBKDF2-hashed
+(200k iterations, per-user salt). The Google button uses Streamlit's native
+OIDC (`st.login`) when `[auth]` secrets are configured; otherwise demo SSO.
+
+**Master (owner) login** — seeded on first run from `MASTER_EMAIL` /
+`MASTER_PASSWORD` (env vars or a `[master]` secrets section). Defaults live in
+`5_Dashboard/auth.py` — **change them before any public deployment.** The owner
+account has `role='admin'` and unlocks the Admin Settings tab.
 
 ## Tests
 
@@ -114,9 +140,9 @@ The dashboard deploys straight from this GitHub repository:
 On first load the app bootstraps its database from
 `4_Database/sample_feedback.csv` — a committed snapshot of 400+ real tweets
 classified by the fine-tuned model — so all charts work immediately. The
-"Analyse new feedback" box needs the inference API, which runs locally or via
-Docker (the model weights are too large for GitHub); on the hosted demo it
-shows a friendly error instead.
+Analyze Page needs the inference API, which runs locally or via Docker (the
+model weights are too large for GitHub); on the hosted demo it shows a friendly
+error instead.
 
 ## Production deployment (Docker)
 
