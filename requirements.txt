@@ -1,0 +1,6 @@
+# Dashboard runtime (kept slim — this is what Streamlit Community Cloud installs).
+# For the full local stack (training, API, tests) use requirements-full.txt.
+streamlit
+plotly
+pandas
+requests

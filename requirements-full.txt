@@ -1,0 +1,26 @@
+# Full local stack: training + API + dashboard + tests
+# Model training (1_Notebook)
+torch
+transformers
+datasets
+accelerate
+scikit-learn
+pandas
+numpy
+matplotlib
+seaborn
+jupyter
+
+# API (3_API)
+fastapi
+uvicorn[standard]
+pydantic
+
+# Dashboard (5_Dashboard)
+streamlit
+plotly
+requests
+
+# Tests (3_API/tests)
+pytest
+httpx
