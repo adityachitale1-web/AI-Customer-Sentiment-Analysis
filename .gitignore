@@ -10,3 +10,5 @@ __pycache__/
 .DS_Store
 api.log
 dashboard.log
+.streamlit/secrets.toml
+5_Dashboard/.streamlit/secrets.toml
