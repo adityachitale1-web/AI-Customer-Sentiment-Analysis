@@ -74,12 +74,19 @@ div[data-testid="element-container"]:has(> iframe[title="st.iframe"]) {
     background: rgba(8, 3, 22, 0.82);
     border-radius: 12px;
 }
-/* Top navigation tabs */
+/* Top navigation tabs — centered pill, TalentLens-style */
 .stTabs [data-baseweb="tab-list"] {
     gap: .4rem; background: rgba(8,3,22,.82);
     border: 1px solid rgba(177,158,239,.22); border-radius: 999px;
     padding: .3rem .5rem; width: fit-content;
+    margin: 0 auto;
 }
+/* Ghost style for the navbar Sign In button */
+[class*="st-key-nav_signin"] button {
+    background: transparent !important; border: none !important;
+    color: #F2EFFD !important; font-weight: 600 !important;
+}
+[class*="st-key-nav_signin"] button:hover { color: #B19EEF !important; }
 .stTabs [data-baseweb="tab"] {
     border-radius: 999px; padding: .35rem 1.2rem; font-weight: 600;
 }

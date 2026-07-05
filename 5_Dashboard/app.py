@@ -1336,12 +1336,18 @@ if auth.current_user() is None and getattr(st, "user", None) is not None:
 
 user = auth.current_user()
 
-# ---------------- Top bar ----------------
-bar_l, bar_r = st.columns([5, 1.6])
+# ---------------- Top navigation bar ----------------
+bar_l, bar_gap, bar_r1, bar_r2 = st.columns([3.4, 2.6, 0.95, 1.25],
+                                            vertical_alignment="center")
 with bar_l:
-    st.markdown(wordmark(36), unsafe_allow_html=True)
-with bar_r:
-    if user:
+    st.markdown(
+        wordmark(34)
+        + f'<div style="letter-spacing:.28em;font-size:.6rem;color:#9A8CC9;'
+          f'text-transform:uppercase;margin:.2rem 0 0 3.1rem;">{TAGLINE.rstrip(".")}'
+          f'</div>',
+        unsafe_allow_html=True)
+if user:
+    with bar_r2:
         # Profile button (top right)
         with st.popover(f"👤 {user['name'].split()[0]}", use_container_width=True):
             st.markdown(f"**{user['name']}**")
@@ -1355,8 +1361,13 @@ with bar_r:
                          key="signout_btn"):
                 auth.sign_out()
                 st.rerun()
-    else:
-        if st.button("Sign In", type="primary", use_container_width=True):
+else:
+    with bar_r1:
+        if st.button("Sign In", use_container_width=True, key="nav_signin"):
+            auth.login_dialog()
+    with bar_r2:
+        if st.button("Get Started", type="primary", use_container_width=True,
+                     key="nav_getstarted"):
             auth.login_dialog()
 
 # ---------------- Tabs ----------------
