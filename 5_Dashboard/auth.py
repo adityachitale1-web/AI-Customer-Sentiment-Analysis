@@ -402,6 +402,12 @@ def _start_verification(email: str) -> None:
     st.rerun(scope="fragment")
 
 
+def open_login(mode: str = "signin") -> None:
+    """Open the auth dialog on a specific view: 'signin' or 'signup'."""
+    st.session_state["auth_mode"] = mode
+    login_dialog()
+
+
 @st.dialog(f"Welcome to {APP_NAME}", width="small")
 def login_dialog():
     st.markdown(wordmark(30), unsafe_allow_html=True)
@@ -436,7 +442,10 @@ def login_dialog():
             st.rerun(scope="fragment")
         return
 
-    st.caption("Sign in to open your sentiment dashboard.")
+    if st.session_state.get("auth_mode", "signin") == "signup":
+        st.caption("Get Started — Create Your Account In Under A Minute.")
+    else:
+        st.caption("Sign In To Open Your Sentiment Dashboard.")
 
     # ---- Google (the "G" logo is injected via CSS on the google_btn key) ----
     if _native_oidc_available():
@@ -471,9 +480,9 @@ def login_dialog():
 
     st.markdown('<div class="sl-divider">or use email</div>', unsafe_allow_html=True)
 
-    tab_in, tab_up = st.tabs(["Sign In", "Create Account"])
+    mode = st.session_state.get("auth_mode", "signin")
 
-    with tab_in:
+    if mode == "signin":
         email = st.text_input("Email", key="si_email", placeholder="you@company.com")
         password = st.text_input("Password", key="si_pw", type="password")
         if st.button("Sign In", type="primary", use_container_width=True, key="si_btn"):
@@ -499,8 +508,13 @@ def login_dialog():
                     st.error(err)
                 else:
                     _sign_in(user)
+        if st.button("New To CXSentinel?  Create An Account →",
+                     use_container_width=True, key="switch_signup"):
+            st.session_state["auth_mode"] = "signup"
+            st.rerun(scope="fragment")
 
-    with tab_up:
+    else:  # ---- sign-up view (Get Started) ----
+        st.caption("Create Your Free Account")
         n1, n2 = st.columns(2)
         first = n1.text_input("First Name", key="su_first", placeholder="Aditya")
         last = n2.text_input("Last Name", key="su_last", placeholder="Chitale")
@@ -528,6 +542,10 @@ def login_dialog():
                     st.error(err)
                 else:
                     _start_verification(user["email"])
+        if st.button("Already Have An Account?  Sign In →",
+                     use_container_width=True, key="switch_signin"):
+            st.session_state["auth_mode"] = "signin"
+            st.rerun(scope="fragment")
 
 
 def current_user():

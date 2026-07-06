@@ -5,7 +5,7 @@ from pathlib import Path
 
 import streamlit as st
 
-from auth import login_dialog
+from auth import open_login
 from branding import APP_NAME, TAGLINE
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
@@ -80,7 +80,7 @@ def render_home(total_feedback: int, signed_in: bool) -> None:
         c1, c2, c3 = st.columns([2, 1.2, 2])
         with c2:
             if st.button("Get Started — It's Free", type="primary", use_container_width=True):
-                login_dialog()
+                open_login("signup")
 
     # ---- Stats band ----
     model_stats = _load_model_stats()
@@ -127,7 +127,7 @@ def render_home(total_feedback: int, signed_in: bool) -> None:
         with b2:
             if st.button("Sign In To Analyze", type="primary", use_container_width=True,
                          key="cta_bottom"):
-                login_dialog()
+                open_login("signin")
     else:
         st.markdown('<h2 class="sl-section sl-grad-text">You Are Signed In — '
                     'Head To The Analyze Page To Begin</h2>', unsafe_allow_html=True)

@@ -267,7 +267,7 @@ def require_login(feature: str) -> bool:
         return True
     st.info(f"Sign In To Use The {feature}.")
     if st.button("Sign In", type="primary", key=f"login_{feature}"):
-        auth.login_dialog()
+        auth.open_login("signin")
     return False
 
 
@@ -1364,11 +1364,11 @@ if user:
 else:
     with bar_r1:
         if st.button("Sign In", use_container_width=True, key="nav_signin"):
-            auth.login_dialog()
+            auth.open_login("signin")
     with bar_r2:
         if st.button("Get Started", type="primary", use_container_width=True,
                      key="nav_getstarted"):
-            auth.login_dialog()
+            auth.open_login("signup")
 
 # ---------------- Tabs ----------------
 db.init_db()
