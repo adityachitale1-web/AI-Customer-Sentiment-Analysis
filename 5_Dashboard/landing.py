@@ -150,9 +150,6 @@ def render_home(total_feedback: int, signed_in: bool) -> None:
     linkedin_url = "https://www.linkedin.com/in/aditya-chitale-84237b175/"
     st.markdown(f"""
     <div class="sl-footer">
-      {APP_NAME} · AI Customer Sentiment Analysis ·
-      DistilBERT Fine-Tuned On Real Tweets + Amazon & Yelp Reviews ·
-      FastAPI + SQLite + Streamlit<br>
       Built By <a href="{linkedin_url}" target="_blank" class="sl-footer-link">{linkedin_logo}Aditya Chitale</a>
       — AI Major Capstone Project, 2026
     </div>
