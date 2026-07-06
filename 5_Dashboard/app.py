@@ -29,6 +29,47 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(PROJECT_ROOT / "4_Database"))
 import db  # noqa: E402
 
+
+def _bootstrap_oidc_from_env():
+    """Write .streamlit/secrets.toml from environment variables so Streamlit's
+    native Google login (st.login) works on hosts that provide secrets as env
+    vars rather than a file — notably Hugging Face Spaces. Runs before any code
+    reads st.secrets. A real committed/local secrets.toml always wins.
+
+    Space secrets to set: GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
+    (optional: OAUTH_COOKIE_SECRET, OAUTH_REDIRECT_URI). The redirect URI is
+    auto-derived from the Space host when not given.
+    """
+    cid = os.getenv("GOOGLE_CLIENT_ID")
+    csec = os.getenv("GOOGLE_CLIENT_SECRET")
+    if not (cid and csec):
+        return
+    secrets_path = PROJECT_ROOT / ".streamlit" / "secrets.toml"
+    if secrets_path.exists():
+        return  # local/committed secrets take precedence
+    space_host = os.getenv("SPACE_HOST", "")
+    redirect = os.getenv("OAUTH_REDIRECT_URI") or (
+        f"https://{space_host}/oauth2callback" if space_host else "")
+    cookie = os.getenv("OAUTH_COOKIE_SECRET",
+                       "cxsentinel-oidc-cookie-set-OAUTH_COOKIE_SECRET-to-override")
+    try:
+        secrets_path.parent.mkdir(parents=True, exist_ok=True)
+        secrets_path.write_text(
+            "[auth]\n"
+            f'redirect_uri = "{redirect}"\n'
+            f'cookie_secret = "{cookie}"\n\n'
+            "[auth.google]\n"
+            f'client_id = "{cid}"\n'
+            f'client_secret = "{csec}"\n'
+            'server_metadata_url = '
+            '"https://accounts.google.com/.well-known/openid-configuration"\n'
+        )
+    except Exception:
+        pass  # never block startup on a secrets-write failure
+
+
+_bootstrap_oidc_from_env()
+
 import importlib  # noqa: E402
 import auth  # noqa: E402
 import branding  # noqa: E402
