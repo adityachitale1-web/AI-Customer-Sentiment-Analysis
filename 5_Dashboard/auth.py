@@ -235,6 +235,16 @@ def get_or_create_google_user(email: str, name: str = ""):
                        email, provider="google")
 
 
+def get_profile(email: str) -> dict:
+    """Full account details for the profile view."""
+    row = _get_user_row(email)
+    if row is None:
+        return {}
+    return {"name": row["name"], "email": row["email"],
+            "provider": row["provider"], "role": row["role"],
+            "created_at": row["created_at"]}
+
+
 def list_users() -> list:
     with db.get_connection() as conn:
         rows = conn.execute(
@@ -441,3 +451,69 @@ def is_admin(user) -> bool:
 def sign_out() -> None:
     for key in ("user", "google_flow"):
         st.session_state.pop(key, None)
+    # End the native OIDC (Google) session too, if there is one
+    try:
+        if getattr(st, "user", None) is not None and st.user.is_logged_in:
+            st.logout()
+    except Exception:
+        pass
+
+
+PROVIDER_LABEL = {"google": "Google", "supabase": "Supabase Auth",
+                  "local": "Email & Password"}
+
+
+@st.dialog("My Profile", width="small")
+def profile_dialog(user: dict):
+    profile = get_profile(user["email"]) or user
+    initial = (profile.get("name", "?").strip()[:1] or "?").upper()
+    is_owner = profile.get("role") == "admin"
+
+    # ---- Avatar + name header ----
+    st.markdown(
+        '<div style="display:flex;align-items:center;gap:1rem;margin:.2rem 0 1rem;">'
+        f'<div style="width:64px;height:64px;border-radius:50%;flex:none;'
+        'display:flex;align-items:center;justify-content:center;font-size:1.9rem;'
+        'font-weight:800;color:#fff;'
+        'background:linear-gradient(135deg,#5227FF,#B970E8);">'
+        f'{initial}</div>'
+        f'<div><div style="font-size:1.25rem;font-weight:800;color:#F2EFFD;">'
+        f'{profile.get("name","")}</div>'
+        f'<div style="color:#B4A9DC;font-size:.9rem;">{profile.get("email","")}</div>'
+        '</div></div>',
+        unsafe_allow_html=True)
+
+    # ---- Detail rows ----
+    role_txt = "Owner · Administrator" if is_owner else "Member"
+    created = (profile.get("created_at") or "")[:10] or "—"
+    c1, c2 = st.columns(2)
+    c1.metric("Role", "Owner" if is_owner else "Member")
+    c2.metric("Signed In Via", PROVIDER_LABEL.get(profile.get("provider"), "Email"))
+    st.markdown(f"**Account Role:** {role_txt}  \n"
+                f"**Member Since:** {created}  \n"
+                f"**Account Email:** {profile.get('email','')}")
+
+    if is_owner:
+        st.info("You Have Owner Access — The Admin Settings Tab Is Available.")
+
+    # ---- Change password (email/password accounts only) ----
+    if profile.get("provider") == "local":
+        with st.expander("🔒 Change Password"):
+            cur = st.text_input("Current Password", type="password", key="pf_cur")
+            new1 = st.text_input("New Password (Min 8 Characters)", type="password",
+                                 key="pf_new1")
+            new2 = st.text_input("Confirm New Password", type="password", key="pf_new2")
+            if st.button("Update Password", type="primary", key="pf_update"):
+                if new1 != new2:
+                    st.error("New passwords do not match.")
+                else:
+                    ok, err = change_password(profile["email"], cur, new1)
+                    st.success("Password updated.") if ok else st.error(err)
+    else:
+        st.caption(f"Password Is Managed By "
+                   f"{PROVIDER_LABEL.get(profile.get('provider'), 'your provider')}.")
+
+    st.divider()
+    if st.button("Sign Out", use_container_width=True, key="pf_signout"):
+        sign_out()
+        st.rerun()

@@ -1365,19 +1365,10 @@ with bar_l:
         unsafe_allow_html=True)
 if user:
     with bar_r2:
-        # Profile avatar (top right): circular initial, dropdown card
+        # Profile avatar (top right): circular initial → opens the profile modal
         initial = (user["name"].strip()[:1] or "?").upper()
-        with st.popover(initial):
-            st.markdown(f"**{user['name']}**")
-            st.caption(user["email"])
-            role = "Owner (Admin)" if user.get("role") == "admin" else "Member"
-            provider = {"google": "Google", "supabase": "Supabase Auth",
-                        "local": "Email"}.get(user.get("provider", "local"), "Email")
-            st.caption(f"Role: {role} · Signed In Via: {provider}")
-            st.divider()
-            if st.button("Sign Out", key="signout_btn"):
-                auth.sign_out()
-                st.rerun()
+        if st.button(initial, key="profile_btn", help="View your profile"):
+            auth.profile_dialog(user)
 else:
     with bar_r1:
         if st.button("Sign In", use_container_width=True, key="nav_signin"):
