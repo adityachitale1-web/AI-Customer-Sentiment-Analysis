@@ -28,6 +28,24 @@ sys.path.append(str(PROJECT_ROOT / "4_Database"))
 import db  # noqa: E402
 
 import auth  # noqa: E402
+
+# Self-heal after partial hot-reloads (Streamlit reruns the main script but can
+# keep an older imported module in memory — e.g. right after a redeploy).
+# If a newer symbol is missing, force-reload our local modules.
+if not hasattr(auth, "open_login"):
+    import importlib
+
+    auth = importlib.reload(auth)
+
+import branding  # noqa: E402
+import landing  # noqa: E402
+
+if not hasattr(branding, "liquid_ether_html"):
+    import importlib
+
+    branding = importlib.reload(branding)
+    landing = importlib.reload(landing)
+
 from branding import (APP_NAME, GLOBAL_CSS, TAGLINE,  # noqa: E402
                       liquid_ether_html, wordmark)
 from landing import render_home  # noqa: E402
