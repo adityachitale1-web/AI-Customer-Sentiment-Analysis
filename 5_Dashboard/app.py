@@ -1348,8 +1348,9 @@ with bar_l:
         unsafe_allow_html=True)
 if user:
     with bar_r2:
-        # Profile button (top right)
-        with st.popover(f"👤 {user['name'].split()[0]}", use_container_width=True):
+        # Profile avatar (top right): circular initial, dropdown card
+        initial = (user["name"].strip()[:1] or "?").upper()
+        with st.popover(initial):
             st.markdown(f"**{user['name']}**")
             st.caption(user["email"])
             role = "Owner (Admin)" if user.get("role") == "admin" else "Member"
@@ -1357,8 +1358,7 @@ if user:
                         "local": "Email"}.get(user.get("provider", "local"), "Email")
             st.caption(f"Role: {role} · Signed In Via: {provider}")
             st.divider()
-            if st.button("Sign Out", type="primary", use_container_width=True,
-                         key="signout_btn"):
+            if st.button("Sign Out", key="signout_btn"):
                 auth.sign_out()
                 st.rerun()
 else:

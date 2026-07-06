@@ -87,6 +87,24 @@ div[data-testid="element-container"]:has(> iframe[title="st.iframe"]) {
     color: #F2EFFD !important; font-weight: 600 !important;
 }
 [class*="st-key-nav_signin"] button:hover { color: #B19EEF !important; }
+/* Profile avatar: circular initial button, top right (the only popover) */
+[data-testid="stPopover"] { display: flex; justify-content: flex-end; }
+[data-testid="stPopover"] button {
+    width: 2.6rem !important; height: 2.6rem !important;
+    min-width: 2.6rem !important; padding: 0 !important;
+    border-radius: 50% !important; border: none !important;
+    background: linear-gradient(135deg, #7A4DFF 0%, #B970E8 100%) !important;
+    color: #FFFFFF !important; font-weight: 700 !important; font-size: 1.05rem !important;
+    box-shadow: 0 2px 14px rgba(122, 77, 255, .5);
+}
+[data-testid="stPopover"] button:hover { filter: brightness(1.15); }
+/* Red text-style Sign Out inside the profile card */
+[class*="st-key-signout_btn"] button {
+    background: transparent !important; border: none !important;
+    color: #FF6B6B !important; font-weight: 600 !important;
+    padding: 0 !important;
+}
+[class*="st-key-signout_btn"] button:hover { color: #FF9494 !important; }
 .stTabs [data-baseweb="tab"] {
     border-radius: 999px; padding: .35rem 1.2rem; font-weight: 600;
 }
