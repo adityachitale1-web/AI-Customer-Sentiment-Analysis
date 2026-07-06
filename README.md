@@ -3,10 +3,8 @@ title: CXSentinel
 emoji: 🛡️
 colorFrom: purple
 colorTo: pink
-sdk: streamlit
-sdk_version: "1.58.0"
-python_version: "3.11"
-app_file: 5_Dashboard/app.py
+sdk: docker
+app_port: 7860
 pinned: true
 license: mit
 short_description: AI customer sentiment analysis dashboard
