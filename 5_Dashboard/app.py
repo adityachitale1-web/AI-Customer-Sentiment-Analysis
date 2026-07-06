@@ -1337,13 +1337,17 @@ def render_admin(user: dict) -> None:
 auth.init_users()
 auth.seed_master()
 
-# Native OIDC session (when [auth] secrets are configured on the deployment)
+# Native OIDC session (when [auth] secrets are configured on the deployment).
+# After Google redirects back, mirror the account locally (so it appears in the
+# admin panel) and preserve the owner's admin role if the email matches.
 if auth.current_user() is None and getattr(st, "user", None) is not None:
     try:
         if getattr(st.user, "is_logged_in", False):
-            st.session_state["user"] = {"name": st.user.name or st.user.email,
-                                        "email": st.user.email, "provider": "google",
-                                        "role": "user"}
+            g_user, _ = auth.get_or_create_google_user(
+                st.user.email, st.user.name or "")
+            st.session_state["user"] = g_user or {
+                "name": st.user.name or st.user.email,
+                "email": st.user.email, "provider": "google", "role": "user"}
     except Exception:
         pass
 

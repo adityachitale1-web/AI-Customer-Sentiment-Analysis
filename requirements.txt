@@ -9,3 +9,4 @@ matplotlib
 fpdf2
 supabase
 dnspython
+Authlib
