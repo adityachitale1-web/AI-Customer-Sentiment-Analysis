@@ -1372,6 +1372,14 @@ if auth.current_user() is None and getattr(st, "user", None) is not None:
 
 user = auth.current_user()
 
+# Keep the signed-in session in sync with the database (name/role can change,
+# e.g. the owner account's name migration) without requiring a re-login.
+if user:
+    fresh = auth.get_profile(user["email"])
+    if fresh:
+        user = {**user, **fresh}
+        st.session_state["user"] = user
+
 # ---------------- Top navigation bar ----------------
 bar_l, bar_gap, bar_r1, bar_r2 = st.columns([3.4, 2.6, 0.95, 1.25],
                                             vertical_alignment="center")
@@ -1384,9 +1392,9 @@ with bar_l:
         unsafe_allow_html=True)
 if user:
     with bar_r2:
-        # Profile avatar (top right): circular initial → opens the profile modal
-        initial = (user["name"].strip()[:1] or "?").upper()
-        if st.button(initial, key="profile_btn", help="View your profile"):
+        # Profile avatar (top right): circular initials → opens the profile modal
+        if st.button(auth.initials(user["name"]), key="profile_btn",
+                     help="View your profile"):
             auth.profile_dialog(user)
 else:
     with bar_r1:

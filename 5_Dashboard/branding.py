@@ -101,11 +101,11 @@ div[data-testid="element-container"]:has(> iframe[title="st.iframe"]) {
     min-width: 2.7rem !important; padding: 0 !important;
     border-radius: 50% !important; border: none !important;
     background: linear-gradient(135deg, #7A4DFF 0%, #B970E8 100%) !important;
-    color: #FFFFFF !important; font-weight: 700 !important; font-size: 1.1rem !important;
+    color: #FFFFFF !important; font-weight: 700 !important; font-size: .95rem !important; letter-spacing: .02em;
     box-shadow: 0 2px 14px rgba(122, 77, 255, .5);
 }
 [class*="st-key-profile_btn"] button:hover { filter: brightness(1.15); }
-[class*="st-key-profile_btn"] button p { font-size: 1.1rem !important; }
+[class*="st-key-profile_btn"] button p { font-size: .95rem !important; }
 /* Red text-style Sign Out inside the profile modal */
 [class*="st-key-pf_signout"] button {
     background: transparent !important;

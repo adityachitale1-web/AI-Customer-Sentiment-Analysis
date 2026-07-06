@@ -92,6 +92,17 @@ def check_email_deliverability(email: str):
 
 DEFAULT_MASTER_EMAIL = "adityachitale1@gmail.com"
 DEFAULT_MASTER_PASSWORD = "CXS-Master#2026"
+DEFAULT_MASTER_NAME = "Aditya Chitale"
+
+
+def initials(name: str) -> str:
+    """Up to two initials: first + last name (e.g. 'Aditya Chitale' -> 'AC')."""
+    parts = [p for p in str(name).strip().split() if p]
+    if not parts:
+        return "?"
+    if len(parts) == 1:
+        return parts[0][0].upper()
+    return (parts[0][0] + parts[-1][0]).upper()
 
 
 # ------------------------------------------------------------------ storage
@@ -138,15 +149,23 @@ def seed_master() -> None:
     """Ensure the owner account exists (idempotent)."""
     email = _secret("master", "email", "MASTER_EMAIL", DEFAULT_MASTER_EMAIL).lower()
     password = _secret("master", "password", "MASTER_PASSWORD", DEFAULT_MASTER_PASSWORD)
+    name = _secret("master", "name", "MASTER_NAME", DEFAULT_MASTER_NAME)
     with db.get_connection() as conn:
-        row = conn.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+        row = conn.execute("SELECT id, name FROM users WHERE email = ?",
+                           (email,)).fetchone()
         if row:
+            # Replace placeholder names (generic "Owner", or one auto-derived
+            # from the email like "Adityachitale1") with the configured name.
+            email_derived = email.split("@")[0].replace(".", " ").title()
+            if row["name"] in ("Owner", email_derived):
+                conn.execute("UPDATE users SET name = ? WHERE id = ?",
+                             (name, row["id"]))
             return
         salt = pysecrets.token_hex(16)
         conn.execute(
             "INSERT INTO users (name, email, password_hash, salt, provider, role, "
             "verified, created_at) VALUES (?, ?, ?, ?, 'local', 'admin', 1, ?)",
-            ("Owner", email, _hash_password(password, salt), salt,
+            (name, email, _hash_password(password, salt), salt,
              datetime.now().isoformat(timespec="seconds")),
         )
 
@@ -466,7 +485,7 @@ PROVIDER_LABEL = {"google": "Google", "supabase": "Supabase Auth",
 @st.dialog("My Profile", width="small")
 def profile_dialog(user: dict):
     profile = get_profile(user["email"]) or user
-    initial = (profile.get("name", "?").strip()[:1] or "?").upper()
+    initial = initials(profile.get("name", "?"))
     is_owner = profile.get("role") == "admin"
 
     # ---- Avatar + name header ----
