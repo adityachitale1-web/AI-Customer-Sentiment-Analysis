@@ -27,25 +27,44 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.append(str(PROJECT_ROOT / "4_Database"))
 import db  # noqa: E402
 
+import importlib  # noqa: E402
 import auth  # noqa: E402
-
-# Self-heal after partial hot-reloads (Streamlit reruns the main script but can
-# keep an older imported module in memory — e.g. right after a redeploy).
-# If a newer symbol is missing, force-reload our local modules.
-if not hasattr(auth, "open_login"):
-    import importlib
-
-    auth = importlib.reload(auth)
-
 import branding  # noqa: E402
 import landing  # noqa: E402
 
-if not hasattr(branding, "liquid_ether_html"):
-    import importlib
 
-    branding = importlib.reload(branding)
-    landing = importlib.reload(landing)
+# Streamlit Cloud redeploys rerun this script but can keep OLD versions of our
+# imported modules in memory, causing AttributeError on newly-added functions.
+# Detect that by source-file mtime and reload any changed module — once per
+# change, process-wide (the store lives in cache_resource so it survives reruns
+# but is fresh per server process). Future-proof: no per-symbol checks needed.
+@st.cache_resource
+def _local_module_mtimes():
+    return {}
 
+
+def _reload_changed_local_modules():
+    store = _local_module_mtimes()
+    # Dependency order: branding has no local deps, auth imports branding,
+    # landing imports auth + branding — reload in that order so each sees fresh
+    # dependencies. Reload on first encounter too (guarantees a reused process
+    # after a redeploy picks up the new source), and whenever the file changes.
+    for mod in (branding, auth, landing):
+        try:
+            path = getattr(mod, "__file__", None)
+            if not path:
+                continue
+            mtime = os.path.getmtime(path)
+            if store.get(path) != mtime:
+                importlib.reload(mod)
+                store[path] = mtime
+        except Exception:
+            pass
+
+
+_reload_changed_local_modules()
+
+# Import names AFTER the reload check so they reflect the freshest source.
 from branding import (APP_NAME, GLOBAL_CSS, TAGLINE,  # noqa: E402
                       liquid_ether_html, wordmark)
 from landing import render_home  # noqa: E402
