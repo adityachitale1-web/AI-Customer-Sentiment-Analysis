@@ -93,43 +93,67 @@ def _api_healthy(timeout: float = 2.0) -> bool:
         return False
 
 
-@st.cache_resource(show_spinner=False)
-def ensure_api_running() -> dict:
-    """Auto-start the inference API alongside the dashboard so the Analyze
-    features always work — no separate manual step, and it keeps running as
-    long as the dashboard is used. Runs once per dashboard process
-    (cache_resource is process-wide). The API is spawned in its own session so
-    it survives independently; a health check prevents duplicate spawns.
-
-    Only auto-manages a LOCAL API when a trained model is present (i.e. a local
-    or self-hosted deployment). An externally configured SENTIMENT_API_URL or a
-    Cloud deployment without model weights is left untouched.
-    """
+def can_manage_api() -> bool:
+    """True only where we can auto-start the API: a local deployment with the
+    trained model present. Cloud (no model) or an external SENTIMENT_API_URL
+    are left untouched."""
     is_local = any(h in API_URL for h in ("127.0.0.1", "localhost"))
     model_present = ((PROJECT_ROOT / "2_Model" / "distilbert-sentiment-v2").exists()
                      or (PROJECT_ROOT / "2_Model" / "distilbert-sentiment").exists())
+    return is_local and model_present
+
+
+@st.cache_resource(show_spinner=False)
+def _api_spawn_guard() -> dict:
+    # Process-wide throttle so we never spawn a flood of uvicorn workers.
+    return {"last_spawn": 0.0}
+
+
+def ensure_api_running(wait_secs: int = 0) -> bool:
+    """Make the inference API reachable, self-healing if it ever goes down.
+
+    Returns True if the API is healthy (now or after starting it). Spawns the
+    FastAPI service in its own session (so it persists independently) when it
+    isn't reachable, throttled to avoid duplicate workers, and optionally waits
+    up to wait_secs for it to become healthy.
+    """
     if _api_healthy():
-        return {"state": "already-running"}
-    if not (is_local and model_present):
-        return {"state": "not-managed"}
-    try:
-        subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "main:app", "--port", "8000"],
-            cwd=str(PROJECT_ROOT / "3_API"),
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-            start_new_session=True,
-        )
-    except Exception as exc:
-        return {"state": "spawn-failed", "error": str(exc)}
-    # Wait for the model to load (bounded; only happens once per process).
-    for _ in range(45):
+        return True
+    if not can_manage_api():
+        return False
+    guard = _api_spawn_guard()
+    now = time.time()
+    if now - guard["last_spawn"] > 20:  # don't respawn more than every 20s
+        try:
+            subprocess.Popen(
+                [sys.executable, "-m", "uvicorn", "main:app", "--port", "8000"],
+                cwd=str(PROJECT_ROOT / "3_API"),
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+                start_new_session=True,
+            )
+            guard["last_spawn"] = now
+        except Exception:
+            return False
+    deadline = time.time() + wait_secs
+    while time.time() < deadline:
         if _api_healthy():
-            return {"state": "started"}
+            return True
         time.sleep(1)
-    return {"state": "starting"}  # still booting; Analyze will retry
+    return _api_healthy()
 
 
-ensure_api_running()
+def api_unavailable_message() -> str:
+    """Honest, context-aware message when the API can't be reached."""
+    if can_manage_api():
+        return ("The Analysis Engine Didn't Respond In Time. Please Wait A Few "
+                "Seconds And Click Analyze Again — It's Starting Up.")
+    return ("Live Analysis Runs Through The Local Inference API, Which Isn't "
+            "Available On This Hosted Demo. Run CXSentinel Locally To Analyze "
+            "Feedback — The History Page Below Still Works With Sample Data.")
+
+
+# Start the API on first load and wait for the model so Analyze is ready.
+ensure_api_running(wait_secs=40)
 
 components.html(liquid_ether_html(), height=1)
 st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
@@ -1168,15 +1192,17 @@ def render_analyze() -> None:
                                 height=120, label_visibility="collapsed")
             if st.button("Analyze", type="primary") and text.strip():
                 try:
-                    resp = requests.post(f"{API_URL}/predict",
-                                         json={"text": text, "source": "dashboard"}, timeout=60)
+                    with st.spinner("Analyzing…"):
+                        if not _api_healthy(1):
+                            ensure_api_running(wait_secs=40)
+                        resp = requests.post(f"{API_URL}/predict",
+                                             json={"text": text, "source": "dashboard"},
+                                             timeout=60)
                     resp.raise_for_status()
                     st.session_state["single_result"] = (resp.json(), text)
                     load_data.clear()
                 except requests.exceptions.ConnectionError:
-                    st.warning("The Analysis Engine Is Still Starting Up — Please "
-                               "Wait A Few Seconds And Click Analyze Again.")
-                    ensure_api_running()
+                    st.error(api_unavailable_message())
                 except Exception as exc:
                     st.error(f"Prediction Failed: {exc}")
 
@@ -1220,7 +1246,10 @@ def render_analyze() -> None:
                     st.dataframe(feed.head(5), use_container_width=True, hide_index=True)
                     if st.button(f"Analyze {len(feed):,} Items", type="primary"):
                         try:
-                            results = classify_batch(feed["text"].tolist())
+                            with st.spinner("Analyzing…"):
+                                if not _api_healthy(1):
+                                    ensure_api_running(wait_secs=40)
+                                results = classify_batch(feed["text"].tolist())
                             for col in ("created_at", "channel", "segment"):
                                 if col in feed.columns:
                                     results[col] = feed[col].values[:len(results)]
@@ -1229,9 +1258,7 @@ def render_analyze() -> None:
                             st.session_state["batch_results"] = results
                             st.session_state["batch_name"] = uploaded.name
                         except requests.exceptions.ConnectionError:
-                            st.warning("The Analysis Engine Is Still Starting Up — "
-                                       "Please Wait A Few Seconds And Try Again.")
-                            ensure_api_running()
+                            st.error(api_unavailable_message())
                         except Exception as exc:
                             st.error(f"Bulk Analysis Failed: {exc}")
 
