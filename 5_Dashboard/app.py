@@ -1288,13 +1288,8 @@ def render_admin(user: dict) -> None:
         a3.metric("API Status", "Offline")
         a4.metric("Active Model", "—")
 
-    smtp_ok = bool(auth._secret("smtp", "host", "SMTP_HOST"))
-    if smtp_ok:
-        st.success("Email Verification Delivery: SMTP Configured — Codes Are Emailed.")
-    else:
-        st.info("Email Verification Delivery: No SMTP Credentials Configured — codes are "
-                "shown on screen (demo mode). Add an [smtp] section to "
-                ".streamlit/secrets.toml (host/port/user/password) to send real emails.")
+    st.info("Sign-Up Is Instant — Email Addresses Are Validated (Format, Domain "
+            "Typos And A DNS Deliverability Check) With No OTP / Verification Step.")
 
     # ---------------- User management ----------------
     st.subheader("Registered Users")
