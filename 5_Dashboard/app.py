@@ -13,7 +13,9 @@ pop-up dialog (Google or email + verification code).
 import io
 import os
 import re
+import subprocess
 import sys
+import time
 from collections import Counter
 from pathlib import Path
 
@@ -82,6 +84,52 @@ they this to up us was we were what when which who will with would you your http
 """.split())
 
 st.set_page_config(page_title=f"{APP_NAME} — {TAGLINE}", page_icon="🛡️", layout="wide")
+
+
+def _api_healthy(timeout: float = 2.0) -> bool:
+    try:
+        return requests.get(f"{API_URL}/health", timeout=timeout).ok
+    except Exception:
+        return False
+
+
+@st.cache_resource(show_spinner=False)
+def ensure_api_running() -> dict:
+    """Auto-start the inference API alongside the dashboard so the Analyze
+    features always work — no separate manual step, and it keeps running as
+    long as the dashboard is used. Runs once per dashboard process
+    (cache_resource is process-wide). The API is spawned in its own session so
+    it survives independently; a health check prevents duplicate spawns.
+
+    Only auto-manages a LOCAL API when a trained model is present (i.e. a local
+    or self-hosted deployment). An externally configured SENTIMENT_API_URL or a
+    Cloud deployment without model weights is left untouched.
+    """
+    is_local = any(h in API_URL for h in ("127.0.0.1", "localhost"))
+    model_present = ((PROJECT_ROOT / "2_Model" / "distilbert-sentiment-v2").exists()
+                     or (PROJECT_ROOT / "2_Model" / "distilbert-sentiment").exists())
+    if _api_healthy():
+        return {"state": "already-running"}
+    if not (is_local and model_present):
+        return {"state": "not-managed"}
+    try:
+        subprocess.Popen(
+            [sys.executable, "-m", "uvicorn", "main:app", "--port", "8000"],
+            cwd=str(PROJECT_ROOT / "3_API"),
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            start_new_session=True,
+        )
+    except Exception as exc:
+        return {"state": "spawn-failed", "error": str(exc)}
+    # Wait for the model to load (bounded; only happens once per process).
+    for _ in range(45):
+        if _api_healthy():
+            return {"state": "started"}
+        time.sleep(1)
+    return {"state": "starting"}  # still booting; Analyze will retry
+
+
+ensure_api_running()
 
 components.html(liquid_ether_html(), height=1)
 st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
@@ -1126,8 +1174,9 @@ def render_analyze() -> None:
                     st.session_state["single_result"] = (resp.json(), text)
                     load_data.clear()
                 except requests.exceptions.ConnectionError:
-                    st.error("The API Is Not Running. Start It First:  "
-                             "`cd 3_API && uvicorn main:app --port 8000`")
+                    st.warning("The Analysis Engine Is Still Starting Up — Please "
+                               "Wait A Few Seconds And Click Analyze Again.")
+                    ensure_api_running()
                 except Exception as exc:
                     st.error(f"Prediction Failed: {exc}")
 
@@ -1180,8 +1229,9 @@ def render_analyze() -> None:
                             st.session_state["batch_results"] = results
                             st.session_state["batch_name"] = uploaded.name
                         except requests.exceptions.ConnectionError:
-                            st.error("The API Is Not Running. Start It First:  "
-                                     "`cd 3_API && uvicorn main:app --port 8000`")
+                            st.warning("The Analysis Engine Is Still Starting Up — "
+                                       "Please Wait A Few Seconds And Try Again.")
+                            ensure_api_running()
                         except Exception as exc:
                             st.error(f"Bulk Analysis Failed: {exc}")
 

@@ -79,21 +79,26 @@ held-out test split, classified by the trained model):
 cd 4_Database && ../.venv/bin/python seed_real_data.py
 ```
 
-**3. Start the API** (terminal 1):
+**3. Start the dashboard** — the inference API starts **automatically**:
+
+```bash
+cd 5_Dashboard && ../.venv/bin/python -m streamlit run app.py
+```
+
+When the dashboard loads, it auto-starts the FastAPI inference service on port
+8000 (if a trained model is present and the API isn't already running) and
+keeps it up — so the Analyze features just work, with no separate step. The API
+runs in its own process and persists independently.
+
+You can still run the API on its own if you prefer (e.g. to see its logs or
+docs at http://127.0.0.1:8000/docs — endpoints `POST /predict`,
+`POST /predict/batch`, `GET /feedback`, `GET /stats`, `GET /health`):
 
 ```bash
 cd 3_API && ../.venv/bin/python -m uvicorn main:app --port 8000
 ```
 
-Interactive API docs: http://127.0.0.1:8000/docs — endpoints: `POST /predict`,
-`POST /predict/batch`, `GET /feedback` (paginated), `GET /stats`, `GET /health`.
-(Works even before training — it falls back to a public pretrained model.)
-
-**4. Start the dashboard** (terminal 2):
-
-```bash
-cd 5_Dashboard && ../.venv/bin/python -m streamlit run app.py
-```
+Or double-click **`Start CXSentinel.command`** to launch everything at once.
 
 Opens at http://localhost:8501 as a full product website with three tabs:
 
