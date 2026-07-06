@@ -152,34 +152,48 @@ div[data-testid="element-container"]:has(> iframe[title="st.iframe"]) {
 /* Landing building blocks */
 .sl-hero { text-align: center; padding: 2.6rem 1rem 1rem; }
 .sl-hero h1 {
-    font-size: clamp(2.4rem, 6vw, 4.2rem); font-weight: 800; line-height: 1.08;
-    letter-spacing: -.02em; margin: 0 0 1rem;
+    font-size: clamp(2.6rem, 6.5vw, 4.6rem); font-weight: 800; line-height: 1.05;
+    letter-spacing: -.02em; margin: 0 0 .5rem;
 }
 .sl-grad-text {
-    background: linear-gradient(90deg, #F2EFFD 20%, #B19EEF 60%, #FF9FFC 100%);
+    background: linear-gradient(90deg, #6C4CFF 0%, #B19EEF 55%, #FF9FFC 100%);
     -webkit-background-clip: text; background-clip: text; color: transparent;
 }
-.sl-hero p { font-size: 1.15rem; color: #E4DEF8; max-width: 620px; margin: 0 auto 1.6rem;
-             text-shadow: 0 1px 10px rgba(6,0,16,.9); }
+.sl-hero .sl-tagline {
+    font-style: italic; font-weight: 500; color: #D7D0EE;
+    font-size: clamp(1.3rem, 2.5vw, 2rem); margin: 0 0 1.1rem;
+    text-shadow: 0 1px 10px rgba(6,0,16,.9);
+}
+.sl-hero p { font-size: 1.08rem; color: #B9B0D8; max-width: 640px; margin: 0 auto 1.6rem;
+             line-height: 1.6; text-shadow: 0 1px 10px rgba(6,0,16,.9); }
 .sl-badge {
     display: inline-block; padding: .35rem 1rem; border-radius: 999px;
     border: 1px solid rgba(177,158,239,.4); background: rgba(82,39,255,.15);
     color: #D8CFF7; font-size: .85rem; font-weight: 600; margin-bottom: 1.3rem;
 }
 .sl-stats {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 1rem; margin: 2.2rem 0;
+    display: grid; grid-template-columns: repeat(4, 1fr);
+    gap: 1rem; margin: 2.2rem auto; max-width: 880px;
 }
 .sl-stat {
     background: rgba(8,3,22,.85);
     border: 1px solid rgba(177,158,239,.22); border-radius: 16px;
     padding: 1.2rem 1rem; text-align: center;
 }
-.sl-stat .v { font-size: 1.9rem; font-weight: 800; color: #F2EFFD; }
-.sl-stat .l { font-size: .82rem; color: #CFC6EC; margin-top: .25rem; }
+.sl-stat .v {
+    font-size: 1.9rem; font-weight: 800;
+    background: linear-gradient(90deg, #7C5CFF, #B19EEF);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+.sl-stat .l { font-size: .72rem; color: #A99BD6; margin-top: .3rem;
+              text-transform: uppercase; letter-spacing: .08em; }
 .sl-cards {
-    display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-    gap: 1rem; margin: 1rem 0 2rem;
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    gap: 1rem; margin: 1rem auto 2rem; max-width: 1060px;
+}
+@media (max-width: 820px) {
+    .sl-stats { grid-template-columns: repeat(2, 1fr); }
+    .sl-cards { grid-template-columns: 1fr; }
 }
 .sl-card {
     background: rgba(8,3,22,.85);

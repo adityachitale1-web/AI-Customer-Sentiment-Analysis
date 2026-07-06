@@ -13,24 +13,24 @@ METRICS_V2_PATH = PROJECT_ROOT / "6_Report" / "metrics_v2.json"
 METRICS_PATH = PROJECT_ROOT / "6_Report" / "metrics.json"
 
 FEATURES = [
-    ("🧠", "Transformer AI At The Core",
-     "A fine-tuned DistilBERT model reads context, not keywords — catching twice "
-     "as many unhappy customers as classical machine learning."),
-    ("⚡", "Real-Time Classification",
-     "Feedback is classified in tens of milliseconds through a production REST "
-     "API, with confidence scores on every prediction."),
-    ("📈", "Trend Intelligence",
-     "Sentiment tracked day by day, so a spike in negativity after a release or "
-     "outage is visible in minutes — not in next quarter's survey."),
-    ("🔍", "Issue Analysis",
-     "Frequent-word breakdowns per sentiment turn thousands of raw complaints "
-     "into a ranked list of what to fix first."),
-    ("📂", "Bulk And Single Analysis",
-     "Paste one line or a whole paragraph — or upload a CSV of thousands of "
-     "feedback items and classify them in one go."),
-    ("🗄️", "Every Insight Stored",
-     "All classified feedback persists to a database with source and timestamp — "
-     "your sentiment history is queryable, filterable and exportable."),
+    ("📄", "Smart Text Ingestion",
+     "Analyze a single review or bulk-upload thousands of feedback items in CSV "
+     "or TXT from any customer channel."),
+    ("🧠", "Transformer Classification",
+     "Fine-tuned DistilBERT with a TF-IDF baseline delivers accurate, "
+     "context-aware sentiment scoring on every item."),
+    ("📊", "Visual Analytics",
+     "Interactive distribution, trend, channel, and emotion charts surface "
+     "actionable insight at a glance."),
+    ("🎯", "Business Insights",
+     "Auto-generated insights, recommendations, and an urgent-response queue "
+     "flag your most at-risk customers first."),
+    ("🏷️", "Auto-Detected Metadata",
+     "Automatically extracts channel, location, timestamp, and the category "
+     "driver behind each piece of feedback."),
+    ("📑", "CSV & PDF Export",
+     "One-click download of classified results and a professionally formatted "
+     "analysis report for your team."),
 ]
 
 STEPS = [
@@ -68,37 +68,42 @@ def render_home(total_feedback: int, signed_in: bool) -> None:
     st.markdown(f"""
     <div class="sl-hero">
       <div class="sl-badge">✦ AI-Powered Customer Sentiment Intelligence</div>
-      <h1 class="sl-grad-text">{TAGLINE}</h1>
-      <p>{APP_NAME} turns raw customer feedback into live sentiment dashboards —
-      a transformer model trained on real tweets and e-commerce reviews classifies
-      every review, tweet and survey response the moment it arrives, so you can
-      act before small complaints become churn.</p>
+      <h1 class="sl-grad-text">{APP_NAME}</h1>
+      <div class="sl-tagline">{TAGLINE}</div>
+      <p>Upload customer feedback, or paste a single review, and let our
+      transformer AI classify sentiment with precision. Automatically detect
+      emotion, score confidence, and surface actionable insights and
+      recommendations — all in seconds.</p>
     </div>
     """, unsafe_allow_html=True)
 
     if not signed_in:
-        c1, c2, c3 = st.columns([2, 1.2, 2])
-        with c2:
-            if st.button("Get Started — It's Free", type="primary", use_container_width=True):
+        _, cb1, cb2, _ = st.columns([2.4, 1.2, 1.0, 2.4])
+        with cb1:
+            if st.button("Start Analyzing  →", type="primary",
+                         use_container_width=True, key="hero_start"):
                 open_login("signup")
+        with cb2:
+            if st.button("View History", use_container_width=True, key="hero_history"):
+                open_login("signin")
 
     # ---- Stats band ----
     model_stats = _load_model_stats()
     st.markdown(f"""
     <div class="sl-stats">
-      <div class="sl-stat"><div class="v">{total_feedback:,}</div><div class="l">Feedback Items Analysed</div></div>
-      <div class="sl-stat"><div class="v">{model_stats['accuracy']}</div><div class="l">Model Accuracy (Real Test Data)</div></div>
-      <div class="sl-stat"><div class="v">{model_stats['train_size']}</div><div class="l">Real Texts Trained On</div></div>
-      <div class="sl-stat"><div class="v">&lt;50 ms</div><div class="l">Average Inference Latency</div></div>
-      <div class="sl-stat"><div class="v">3</div><div class="l">Sentiment Classes</div></div>
+      <div class="sl-stat"><div class="v">{model_stats['train_size']}</div><div class="l">Texts Trained On</div></div>
+      <div class="sl-stat"><div class="v">2</div><div class="l">AI Models</div></div>
+      <div class="sl-stat"><div class="v">&lt;50 ms</div><div class="l">Per Prediction</div></div>
+      <div class="sl-stat"><div class="v">{model_stats['accuracy']}</div><div class="l">Model Accuracy</div></div>
     </div>
     """, unsafe_allow_html=True)
 
     # ---- Features ----
-    st.markdown('<h2 class="sl-section sl-grad-text">Everything A Feedback Team Needs</h2>',
+    st.markdown('<h2 class="sl-section sl-grad-text">Everything You Need</h2>',
                 unsafe_allow_html=True)
-    st.markdown('<p class="sl-section-sub">From Raw Text To Boardroom-Ready Insight, In One Pipeline.</p>',
-                unsafe_allow_html=True)
+    st.markdown('<p class="sl-section-sub">End-to-end customer sentiment analysis '
+                'powered by transformer AI, real-time scoring, and interactive '
+                'analytics.</p>', unsafe_allow_html=True)
     cards = "".join(
         f'<div class="sl-card"><div class="ic">{icon}</div><h4>{title}</h4><p>{body}</p></div>'
         for icon, title, body in FEATURES
