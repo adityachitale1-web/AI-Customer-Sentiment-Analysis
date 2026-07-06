@@ -1,4 +1,4 @@
-# Dashboard runtime (kept slim — this is what Streamlit Community Cloud installs).
+# Dashboard runtime — what Streamlit Community Cloud installs.
 # For the full local stack (training, API, tests) use requirements-full.txt.
 streamlit
 plotly
@@ -10,3 +10,7 @@ fpdf2
 supabase
 dnspython
 Authlib
+# Built-in analysis engine (used when the FastAPI service isn't available,
+# e.g. on the hosted demo)
+torch
+transformers

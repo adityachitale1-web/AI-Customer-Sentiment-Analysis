@@ -32,6 +32,7 @@ import db  # noqa: E402
 import importlib  # noqa: E402
 import auth  # noqa: E402
 import branding  # noqa: E402
+import inference  # noqa: E402
 import landing  # noqa: E402
 
 
@@ -51,7 +52,7 @@ def _reload_changed_local_modules():
     # landing imports auth + branding — reload in that order so each sees fresh
     # dependencies. Reload on first encounter too (guarantees a reused process
     # after a redeploy picks up the new source), and whenever the file changes.
-    for mod in (branding, auth, landing):
+    for mod in (branding, auth, inference, landing):
         try:
             path = getattr(mod, "__file__", None)
             if not path:
@@ -142,18 +143,11 @@ def ensure_api_running(wait_secs: int = 0) -> bool:
     return _api_healthy()
 
 
-def api_unavailable_message() -> str:
-    """Honest, context-aware message when the API can't be reached."""
-    if can_manage_api():
-        return ("The Analysis Engine Didn't Respond In Time. Please Wait A Few "
-                "Seconds And Click Analyze Again — It's Starting Up.")
-    return ("Live Analysis Runs Through The Local Inference API, Which Isn't "
-            "Available On This Hosted Demo. Run CXSentinel Locally To Analyze "
-            "Feedback — The History Page Below Still Works With Sample Data.")
-
-
 # Start the API on first load and wait for the model so Analyze is ready.
-ensure_api_running(wait_secs=40)
+# (Where no API can run — e.g. the hosted demo — the dashboard's built-in
+# engine in inference.py handles analysis instead.)
+if can_manage_api():
+    ensure_api_running(wait_secs=40)
 
 components.html(liquid_ether_html(), height=1)
 st.markdown(GLOBAL_CSS, unsafe_allow_html=True)
@@ -471,14 +465,19 @@ def sentence_sentiments(text: str) -> pd.DataFrame:
     sentences = split_sentences(text)
     if len(sentences) < 2:
         return pd.DataFrame()
-    resp = requests.post(
-        f"{API_URL}/predict/batch",
-        json={"items": [{"text": s, "source": "sentence", "persist": False}
-                        for s in sentences[:30]]},
-        timeout=120,
-    )
-    resp.raise_for_status()
-    rows = resp.json()
+    try:
+        resp = requests.post(
+            f"{API_URL}/predict/batch",
+            json={"items": [{"text": s, "source": "sentence", "persist": False}
+                            for s in sentences[:30]]},
+            timeout=120,
+        )
+        resp.raise_for_status()
+        rows = resp.json()
+    except requests.exceptions.ConnectionError:
+        # No API (e.g. hosted demo): built-in engine, no persistence
+        rows = inference.predict_many(sentences[:30], source="sentence",
+                                      persist=False)
     return pd.DataFrame([{"sentence": r["text"], "sentiment": r["sentiment"],
                           "confidence": r["confidence"]} for r in rows])
 
@@ -1193,16 +1192,24 @@ def render_analyze() -> None:
             if st.button("Analyze", type="primary") and text.strip():
                 try:
                     with st.spinner("Analyzing…"):
-                        if not _api_healthy(1):
+                        if can_manage_api() and not _api_healthy(1):
                             ensure_api_running(wait_secs=40)
-                        resp = requests.post(f"{API_URL}/predict",
-                                             json={"text": text, "source": "dashboard"},
-                                             timeout=60)
-                    resp.raise_for_status()
-                    st.session_state["single_result"] = (resp.json(), text)
+                        if _api_healthy(1):
+                            resp = requests.post(f"{API_URL}/predict",
+                                                 json={"text": text, "source": "dashboard"},
+                                                 timeout=60)
+                            resp.raise_for_status()
+                            result = resp.json()
+                        else:
+                            # No API (e.g. hosted demo): built-in engine
+                            result = inference.predict_many([text],
+                                                            source="dashboard")[0]
+                    st.session_state["single_result"] = (result, text)
                     load_data.clear()
                 except requests.exceptions.ConnectionError:
-                    st.error(api_unavailable_message())
+                    result = inference.predict_many([text], source="dashboard")[0]
+                    st.session_state["single_result"] = (result, text)
+                    load_data.clear()
                 except Exception as exc:
                     st.error(f"Prediction Failed: {exc}")
 
@@ -1246,10 +1253,18 @@ def render_analyze() -> None:
                     st.dataframe(feed.head(5), use_container_width=True, hide_index=True)
                     if st.button(f"Analyze {len(feed):,} Items", type="primary"):
                         try:
+                            texts = feed["text"].tolist()
                             with st.spinner("Analyzing…"):
-                                if not _api_healthy(1):
+                                if can_manage_api() and not _api_healthy(1):
                                     ensure_api_running(wait_secs=40)
-                                results = classify_batch(feed["text"].tolist())
+                                if _api_healthy(1):
+                                    results = classify_batch(texts)
+                                else:
+                                    # No API (e.g. hosted demo): built-in engine
+                                    rows = inference.predict_many(
+                                        texts, source="bulk_upload")
+                                    results = pd.DataFrame(rows)[
+                                        ["text", "sentiment", "confidence"]]
                             for col in ("created_at", "channel", "segment"):
                                 if col in feed.columns:
                                     results[col] = feed[col].values[:len(results)]
@@ -1257,8 +1272,6 @@ def render_analyze() -> None:
                             load_data.clear()
                             st.session_state["batch_results"] = results
                             st.session_state["batch_name"] = uploaded.name
-                        except requests.exceptions.ConnectionError:
-                            st.error(api_unavailable_message())
                         except Exception as exc:
                             st.error(f"Bulk Analysis Failed: {exc}")
 
