@@ -222,6 +222,12 @@ div[data-testid="element-container"]:has(> iframe[title="st.iframe"]) {
     border-top: 1px solid rgba(177,158,239,.18); color: #C3B8E4; font-size: .85rem;
     text-shadow: 0 1px 8px rgba(6,0,16,.9);
 }
+.sl-footer-link {
+    color: #E4DEF8 !important; font-weight: 600; text-decoration: none;
+    border-bottom: 1px solid rgba(177,158,239,.4);
+    padding-bottom: 1px; transition: color .15s, border-color .15s;
+}
+.sl-footer-link:hover { color: #FF9FFC !important; border-color: #FF9FFC; }
 h2.sl-section { text-align: center; font-weight: 800; letter-spacing: -.01em; margin: 1.2rem 0 .4rem;
                 text-shadow: 0 1px 12px rgba(6,0,16,.9); }
 p.sl-section-sub { text-align: center; color: #D3CAEE; margin: 0 0 1.4rem;

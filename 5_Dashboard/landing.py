@@ -138,11 +138,22 @@ def render_home(total_feedback: int, signed_in: bool) -> None:
                     'Head To The Analyze Page To Begin</h2>', unsafe_allow_html=True)
 
     # ---- Footer ----
+    linkedin_logo = (
+        '<svg viewBox="0 0 24 24" width="15" height="15" fill="#0A66C2" '
+        'style="vertical-align:-2px;margin-right:5px;">'
+        '<path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.13 '
+        '1.45-2.13 2.94v5.67H9.35V9h3.42v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 '
+        '3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 '
+        '2.06 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.8 0 0 '
+        '.78 0 1.75v20.5C0 23.22.8 24 1.77 24h20.45c.98 0 1.78-.78 '
+        '1.78-1.75V1.75C24 .78 23.2 0 22.22 0z"/></svg>')
+    linkedin_url = "https://www.linkedin.com/in/aditya-chitale-84237b175/"
     st.markdown(f"""
     <div class="sl-footer">
       {APP_NAME} · AI Customer Sentiment Analysis ·
       DistilBERT Fine-Tuned On Real Tweets + Amazon & Yelp Reviews ·
       FastAPI + SQLite + Streamlit<br>
-      Built By Aditya Chitale — AI Major Capstone Project, 2026
+      Built By <a href="{linkedin_url}" target="_blank" class="sl-footer-link">{linkedin_logo}Aditya Chitale</a>
+      — AI Major Capstone Project, 2026
     </div>
     """, unsafe_allow_html=True)
