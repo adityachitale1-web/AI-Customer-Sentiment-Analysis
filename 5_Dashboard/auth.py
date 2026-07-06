@@ -91,8 +91,12 @@ def check_email_deliverability(email: str):
     return None
 
 DEFAULT_MASTER_EMAIL = "adityachitale1@gmail.com"
-DEFAULT_MASTER_PASSWORD = "CXS-Master#2026"
 DEFAULT_MASTER_NAME = "Aditya Chitale"
+# No master password is baked into the source. The owner reaches Admin Settings
+# by signing in with Google (the master email is seeded with the admin role).
+# Email+password admin login is enabled only if MASTER_PASSWORD is set as an
+# env var / [master] secret; otherwise the account gets an unguessable random
+# password so no admin credential is ever exposed in the public repo.
 
 
 def initials(name: str) -> str:
@@ -148,7 +152,10 @@ def init_users() -> None:
 def seed_master() -> None:
     """Ensure the owner account exists (idempotent)."""
     email = _secret("master", "email", "MASTER_EMAIL", DEFAULT_MASTER_EMAIL).lower()
-    password = _secret("master", "password", "MASTER_PASSWORD", DEFAULT_MASTER_PASSWORD)
+    # Random, unguessable password when MASTER_PASSWORD isn't configured, so the
+    # public source never contains a working admin credential. The owner still
+    # gets admin by signing in with Google (email matches the seeded row).
+    password = _secret("master", "password", "MASTER_PASSWORD", "") or pysecrets.token_urlsafe(24)
     name = _secret("master", "name", "MASTER_NAME", DEFAULT_MASTER_NAME)
     with db.get_connection() as conn:
         row = conn.execute("SELECT id, name FROM users WHERE email = ?",
